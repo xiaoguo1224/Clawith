@@ -1,0 +1,505 @@
+{
+  "app": {
+    "name": "Clawith",
+    "tagline": "Enterprise Digital Employee Platform"
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "myAgents": "My Digital Employees",
+    "newAgent": "New Digital Employee",
+    "enterprise": "Enterprise Settings",
+    "language": "Language",
+    "plaza": "Plaza"
+  },
+  "auth": {
+    "login": "Login",
+    "register": "Register",
+    "username": "Username",
+    "password": "Password",
+    "email": "Email",
+    "displayName": "Display Name",
+    "loginWithFeishu": "Login with Feishu SSO",
+    "or": "or",
+    "noAccount": "Don't have an account?",
+    "hasAccount": "Already have an account?",
+    "goRegister": "Register",
+    "goLogin": "Login",
+    "selectCompany": "Company",
+    "selectCompanyPlaceholder": "— Select a company —",
+    "loginFailed": "Login failed"
+  },
+  "roles": {
+    "platformAdmin": "Platform Admin",
+    "orgAdmin": "Org Admin",
+    "agentAdmin": "Agent Admin",
+    "member": "Member"
+  },
+  "layout": {
+    "allCompanies": "All Companies",
+    "newCompany": "New Company",
+    "companyName": "Company Name",
+    "create": "Create",
+    "myCompany": "My Company",
+    "logout": "Log out"
+  },
+  "dashboard": {
+    "greeting": {
+      "lateNight": "Late night",
+      "morning": "Good morning",
+      "afternoon": "Good afternoon",
+      "evening": "Good evening"
+    },
+    "totalAgents": "{{count}} digital employees",
+    "stats": {
+      "agents": "Digital Employees",
+      "online": "{{count}} online",
+      "activeTasks": "Active Tasks",
+      "completedToday": "{{count}} completed today",
+      "todayTokens": "Today's Tokens",
+      "allAgentsTotal": "All agents total",
+      "recentlyActive": "Recently Active",
+      "lastHour": "Last hour"
+    },
+    "table": {
+      "agent": "Agent",
+      "latestActivity": "Latest Activity",
+      "token": "Token",
+      "active": "Active"
+    },
+    "status": {
+      "running": "Running",
+      "idle": "Standby",
+      "stopped": "Stopped",
+      "error": "Error",
+      "creating": "Creating"
+    },
+    "noActivity": "No activity yet",
+    "noLimit": "Unlimited",
+    "justNow": "Just now",
+    "minutesAgo": "{{count}}m ago",
+    "hoursAgo": "{{count}}h ago",
+    "daysAgo": "{{count}}d ago",
+    "globalActivity": "Global Activity",
+    "recentCount": "Last {{count}}",
+    "noAgents": "No digital employees yet, create your first one",
+    "createFirst": "Create first digital employee"
+  },
+  "agent": {
+    "status": {
+      "running": "Working",
+      "idle": "Idle",
+      "stopped": "Stopped",
+      "creating": "Creating",
+      "error": "Error"
+    },
+    "tabs": {
+      "status": "Status",
+      "tasks": "Tasks",
+      "mind": "Mind",
+      "tools": "Tools",
+      "skills": "Skills",
+      "relationships": "Relationships",
+      "workspace": "Workspace",
+      "chat": "Chat",
+      "activityLog": "Activity Log",
+      "settings": "Settings"
+    },
+    "fields": {
+      "name": "Name",
+      "role": "Role",
+      "avatar": "Avatar",
+      "personality": "Personality",
+      "boundaries": "Boundaries",
+      "lastActive": "Last Active",
+      "tasksInProgress": "In Progress",
+      "supervisions": "Supervisions"
+    },
+    "actions": {
+      "start": "Start",
+      "stop": "Stop",
+      "delete": "Delete",
+      "edit": "Edit",
+      "chat": "Chat",
+      "talkToMe": "Talk to me"
+    },
+    "detail": {
+      "loading": "Loading...",
+      "notFound": "Digital employee not found",
+      "backToDashboard": "Back to Dashboard",
+      "humanRelationships": "Human Relationships",
+      "agentRelationships": "Agent Relationships",
+      "searchMembers": "Search org members...",
+      "noRelationships": "No relationships",
+      "addRelationship": "Add Relationship",
+      "supervisor": "Supervisor",
+      "colleague": "Colleague",
+      "subordinate": "Subordinate",
+      "collaborator": "Collaborator",
+      "reporter": "Reporter"
+    },
+    "tasks": {
+      "todo": "Todo",
+      "doing": "In Progress",
+      "supervision": "Supervision",
+      "done": "Done",
+      "newTask": "New Task",
+      "taskTitle": "Task Title",
+      "taskDesc": "Task description (optional)",
+      "dueDate": "Due date (optional)",
+      "addSchedule": "Add Schedule",
+      "schedule": "Schedule",
+      "cronExpression": "Cron Expression",
+      "scheduleDesc": "Schedule description (optional)",
+      "noTasks": "No tasks",
+      "typeTask": "Task",
+      "typeSupervision": "Supervision",
+      "supervisionTitle": "What to follow up on...",
+      "supervisionConfig": "Supervision Settings",
+      "targetPerson": "Target person name",
+      "remindSchedule": "Remind",
+      "daily": "Daily",
+      "every2days": "Every 2 days",
+      "every3days": "Every 3 days",
+      "weekly": "Weekly"
+    },
+    "soul": {
+      "title": "Soul.md — Personality Definition",
+      "editButton": "Edit",
+      "saveButton": "Save",
+      "saving": "Saving...",
+      "cancelButton": "Cancel"
+    },
+    "memory": {
+      "title": "Memory Files",
+      "indexFile": "Index",
+      "memoryFile": "Memory"
+    },
+    "skills": {
+      "title": "Skill Definitions",
+      "description": "Skills define how the agent behaves in specific scenarios. Each .md file is a skill. Use YAML frontmatter (name + description) for best results.",
+      "skillFiles": "Skill Files",
+      "noSkills": "No skills defined yet",
+      "newSkill": "New Skill",
+      "flatFormat": "Simple skill (single .md file)",
+      "folderFormat": "Folder skill with auxiliary files (scripts/, references/)",
+      "save": "Save",
+      "delete": "Delete",
+      "edit": "Edit",
+      "cancel": "Cancel",
+      "toolName": "Tool Name",
+      "enabled": "Enabled",
+      "disabled": "Disabled"
+    },
+    "toolMgmt": {
+      "title": "Tool Management",
+      "description": "Enable or disable tools available to this agent."
+    },
+    "workspace": {
+      "title": "Workspace",
+      "rootDir": "Root",
+      "uploadFile": "Upload File",
+      "newFolder": "New Folder",
+      "newFile": "New File",
+      "newFolderName": "Folder name",
+      "dragOrClick": "Drag files here or click to upload",
+      "noFiles": "No files",
+      "delete": "Delete",
+      "save": "Save",
+      "edit": "Edit",
+      "cancel": "Cancel"
+    },
+    "chat": {
+      "title": "Chat",
+      "startChat": "Start chatting",
+      "connected": "Connected",
+      "disconnected": "Disconnected",
+      "startConversation": "Start a conversation with {{name}}",
+      "fileSupport": "Supports PDF, Word, Excel, TXT files",
+      "attachment": "Attachment",
+      "uploadFailed": "Upload failed",
+      "askAboutFile": "Ask about {{name}}..."
+    },
+    "activityLog": {
+      "title": "Activity Log",
+      "noRecords": "No activity records"
+    },
+    "settings": {
+      "title": "Agent Settings",
+      "modelConfig": "Model Config",
+      "primaryModel": "Primary Model",
+      "fallbackModel": "Fallback Model",
+      "noFallback": "No fallback",
+      "conversationContext": "Conversation Context",
+      "maxRounds": "Max Rounds",
+      "roundsDesc": "Maximum LLM call rounds per conversation",
+      "tokenLimits": "Token Limits",
+      "dailyLimit": "Daily Limit",
+      "monthlyLimit": "Monthly Limit",
+      "noLimit": "Unlimited",
+      "currentUsage": "Current Usage",
+      "today": "Today",
+      "month": "This Month",
+      "saveSettings": "Save Settings",
+      "saved": "Saved",
+      "autonomy": {
+        "title": "Autonomy Policy",
+        "description": "Configure the autonomy level for each agent action",
+        "readFiles": "Read Files",
+        "readFilesDesc": "Read files in workspace and knowledge base",
+        "writeFiles": "Write Files",
+        "writeFilesDesc": "Create or modify files in workspace",
+        "deleteFiles": "Delete Files",
+        "deleteFilesDesc": "Delete files in workspace",
+        "sendFeishu": "Send Feishu Message",
+        "sendFeishuDesc": "Send messages to users via Feishu",
+        "webSearch": "Web Search",
+        "webSearchDesc": "Search the internet for information",
+        "manageTasks": "Manage Tasks",
+        "manageTasksDesc": "Create, update, or delete tasks",
+        "l1Auto": "L1 Auto Execute",
+        "l2Notify": "L2 Notify",
+        "l3Approve": "L3 Approval Required"
+      },
+      "channel": {
+        "title": "Channel Config",
+        "feishu": "Feishu Bot",
+        "feishuDesc": "Chat with agent via Feishu bot",
+        "web": "Web Chat",
+        "webDesc": "Chat with agent through web interface",
+        "api": "API Integration",
+        "apiDesc": "Integrate with agent through API",
+        "appId": "App ID",
+        "appSecret": "App Secret",
+        "encryptKey": "Encrypt Key",
+        "webhookUrl": "Webhook URL",
+        "configured": "Configured",
+        "notConfigured": "Not configured",
+        "saveChannel": "Save Config"
+      },
+      "danger": {
+        "title": "Danger Zone",
+        "deleteAgent": "Delete Digital Employee",
+        "deleteWarning": "This action is irreversible. All data for this digital employee will be permanently deleted.",
+        "confirmDelete": "Confirm Delete",
+        "typeToConfirm": "Type the agent name to confirm"
+      }
+    },
+    "toolCategories": {
+      "file": "File Operations",
+      "task": "Task Management",
+      "communication": "Communication",
+      "search": "Search",
+      "custom": "Custom",
+      "general": "General"
+    },
+    "upload": {
+      "success": "Upload successful",
+      "failed": "Upload failed",
+      "uploading": "Uploading..."
+    }
+  },
+  "wizard": {
+    "steps": {
+      "basicInfo": "Basic Info",
+      "personality": "Personality",
+      "skills": "Skills",
+      "permissions": "Permissions",
+      "channel": "Channel"
+    },
+    "next": "Next",
+    "prev": "Previous",
+    "finish": "Create",
+    "nameHint": "Name your digital employee",
+    "roleHint": "Describe its role",
+    "step1": {
+      "title": "Basic Info & Model Selection",
+      "selectTemplate": "Select template (optional)",
+      "custom": "Custom",
+      "primaryModel": "Primary Model",
+      "noModels": "No available models. Please add LLM models in",
+      "enterpriseSettings": "Enterprise Settings",
+      "addModels": "first",
+      "dailyTokenLimit": "Daily Token Limit",
+      "monthlyTokenLimit": "Monthly Token Limit",
+      "unlimited": "Unlimited",
+      "namePlaceholder": "e.g. Smart Assistant"
+    },
+    "step2": {
+      "title": "Personality & Boundaries",
+      "personalityPlaceholder": "Responsible, data-driven, proactive reporting...",
+      "boundariesPlaceholder": "Cannot modify financial data, external communication requires approval..."
+    },
+    "step3": {
+      "title": "Skills Configuration",
+      "description": "Select skills for the digital employee. You can edit them later on the detail page.",
+      "infoSearch": "Info Search",
+      "infoSearchDesc": "Web search and information retrieval",
+      "dataAnalysis": "Data Analysis",
+      "dataAnalysisDesc": "Data queries and report generation",
+      "contentCreation": "Content Creation",
+      "contentCreationDesc": "Copywriting and content editing",
+      "codeDev": "Code Development",
+      "codeDevDesc": "Code writing and technical documentation",
+      "emailMgmt": "Email Management",
+      "emailMgmtDesc": "Email and calendar management",
+      "fileProcessing": "File Processing",
+      "fileProcessingDesc": "Document parsing and format conversion"
+    },
+    "step4": {
+      "title": "Permissions",
+      "companyWide": "Company-wide",
+      "companyWideDesc": "Everyone can use this digital employee",
+      "department": "Department",
+      "departmentDesc": "Only selected department members can use",
+      "selfOnly": "Self Only",
+      "selfOnlyDesc": "Only the creator can use"
+    },
+    "step5": {
+      "title": "Feishu Bot Configuration (Optional)",
+      "description": "Configure an independent Feishu bot for the digital employee. Users can chat directly via Feishu. You can skip this step and configure it later in Settings.",
+      "configSteps": "Configuration Steps:",
+      "step1Feishu": "Go to",
+      "feishuPlatform": "Feishu Open Platform",
+      "step2Feishu": "Create enterprise app → Enable bot capability",
+      "step3Feishu": "Copy App ID and App Secret below",
+      "step4Feishu": "After creation, you'll get a Webhook URL for event callback",
+      "encryptKeyOptional": "Encrypt Key (optional)",
+      "encryptKeyPlaceholder": "For event encryption verification",
+      "skipHint": "You can still chat with the agent via web after skipping"
+    },
+    "summary": {
+      "unnamed": "Unnamed",
+      "model": "Model",
+      "dailyLimit": "Daily limit"
+    }
+  },
+  "task": {
+    "todo": "Todo",
+    "doing": "Doing",
+    "supervision": "Supervision",
+    "done": "Done",
+    "createTask": "New Task",
+    "priority": {
+      "low": "Low",
+      "medium": "Medium",
+      "high": "High",
+      "urgent": "Urgent"
+    }
+  },
+  "chat": {
+    "placeholder": "Type a message...",
+    "send": "Send"
+  },
+  "enterprise": {
+    "title": "Enterprise Settings",
+    "tabs": {
+      "llm": "Model Pool",
+      "tools": "Tool Management",
+      "org": "Org Structure",
+      "info": "Company Management",
+      "audit": "Audit Log",
+      "config": "Platform Config",
+      "kb": "Company KB",
+      "approvals": "Approvals",
+      "skills": "Skills"
+    },
+    "stats": {
+      "users": "{{count}} users",
+      "runningAgents": "{{running}}/{{total}} running"
+    },
+    "llm": {
+      "addModel": "Add Model",
+      "noModels": "No data",
+      "provider": "Provider",
+      "model": "Model",
+      "label": "Display Name",
+      "apiKey": "API Key",
+      "baseUrl": "Base URL (optional)",
+      "enabled": "Enabled",
+      "disabled": "Disabled",
+      "save": "Save",
+      "delete": "Delete",
+      "edit": "Edit",
+      "cancel": "Cancel"
+    },
+    "tools": {
+      "title": "Global Tool Management",
+      "testConnection": "Test Connection",
+      "testing": "Testing...",
+      "connectionSuccess": "Connection successful! Found {{count}} tools",
+      "connectionFailed": "Connection failed",
+      "importAll": "Import All",
+      "mcpServerName": "MCP Server Name",
+      "mcpServerUrl": "MCP Server URL",
+      "configure": "Configure",
+      "collapse": "Collapse",
+      "saveConfig": "Save Config",
+      "description": "Description",
+      "parameters": "Parameters"
+    },
+    "org": {
+      "feishuSync": "Feishu Directory Sync",
+      "appId": "App ID",
+      "appSecret": "App Secret",
+      "syncing": "Syncing...",
+      "syncNow": "Sync Now",
+      "syncComplete": "Sync complete: {{departments}} departments, {{members}} members",
+      "orgBrowser": "Organization Browser",
+      "allDepartments": "All",
+      "searchMembers": "Search members...",
+      "member": "Member",
+      "admin": "Admin",
+      "noMembers": "No members"
+    },
+    "config": {
+      "title": "Platform Configuration",
+      "publicUrl": "Public URL (PUBLIC_BASE_URL)",
+      "publicUrlPlaceholder": "e.g. https://xxx.cpolar.top",
+      "maxRounds": "Agent Max Conversation Rounds",
+      "maxRoundsPlaceholder": "Default 20",
+      "save": "Save",
+      "saved": "Saved",
+      "themeColor": "Theme Color"
+    },
+    "kb": {
+      "title": "Company Knowledge Base",
+      "rootDir": "Root",
+      "uploadFile": "Upload File",
+      "newFolder": "New Folder",
+      "folderName": "Folder name",
+      "noFiles": "No files",
+      "dragOrClick": "Drag or click to upload",
+      "delete": "Delete",
+      "save": "Save",
+      "edit": "Edit",
+      "cancel": "Cancel",
+      "viewFile": "View File",
+      "confirmDelete": "Confirm Delete"
+    },
+    "audit": {
+      "title": "Audit Log",
+      "noRecords": "No audit records",
+      "time": "Time",
+      "user": "User",
+      "action": "Action",
+      "target": "Target"
+    }
+  },
+  "common": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "delete": "Delete",
+    "search": "Search",
+    "loading": "Loading...",
+    "noData": "No data",
+    "error": "Error",
+    "close": "Close",
+    "edit": "Edit",
+    "back": "Back",
+    "yes": "Yes",
+    "no": "No",
+    "all": "All",
+    "none": "None"
+  }
+}

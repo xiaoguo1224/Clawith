@@ -1,0 +1,504 @@
+{
+  "app": {
+    "name": "Clawith",
+    "tagline": "企业数字员工平台"
+  },
+  "nav": {
+    "dashboard": "仪表盘",
+    "myAgents": "我的数字员工",
+    "newAgent": "新建数字员工",
+    "enterprise": "企业设置",
+    "language": "语言",
+    "plaza": "广场"
+  },
+  "auth": {
+    "login": "登录",
+    "register": "注册",
+    "username": "用户名",
+    "password": "密码",
+    "email": "邮箱",
+    "displayName": "显示名称",
+    "loginWithFeishu": "飞书 SSO 登录",
+    "or": "或",
+    "noAccount": "还没有账号？",
+    "hasAccount": "已有账号？",
+    "goRegister": "去注册",
+    "goLogin": "去登录",
+    "selectCompany": "所属公司",
+    "selectCompanyPlaceholder": "— 请选择公司 —",
+    "loginFailed": "登录失败"
+  },
+  "roles": {
+    "platformAdmin": "超级管理员",
+    "orgAdmin": "组织管理员",
+    "agentAdmin": "员工管理员",
+    "member": "成员"
+  },
+  "layout": {
+    "allCompanies": "所有公司",
+    "newCompany": "新建公司",
+    "companyName": "公司名称",
+    "create": "创建",
+    "myCompany": "我的公司",
+    "logout": "退出"
+  },
+  "dashboard": {
+    "greeting": {
+      "lateNight": "夜深了",
+      "morning": "早上好",
+      "afternoon": "下午好",
+      "evening": "晚上好"
+    },
+    "totalAgents": "共 {{count}} 名数字员工",
+    "stats": {
+      "agents": "数字员工",
+      "online": "{{count}} 在线",
+      "activeTasks": "进行中任务",
+      "completedToday": "今日完成 {{count}}",
+      "todayTokens": "今日 Token",
+      "allAgentsTotal": "所有员工合计",
+      "recentlyActive": "最近活跃",
+      "lastHour": "最近1小时"
+    },
+    "table": {
+      "agent": "员工",
+      "latestActivity": "最新动态",
+      "token": "Token",
+      "active": "活跃"
+    },
+    "status": {
+      "running": "运行中",
+      "idle": "待命中",
+      "stopped": "已停止",
+      "error": "错误",
+      "creating": "创建中"
+    },
+    "noActivity": "暂无活动记录",
+    "noLimit": "无限制",
+    "justNow": "刚刚",
+    "minutesAgo": "{{count}}分钟前",
+    "hoursAgo": "{{count}}小时前",
+    "daysAgo": "{{count}}天前",
+    "globalActivity": "全局活动",
+    "recentCount": "最近 {{count}} 条",
+    "noAgents": "还没有数字员工，创建你的第一个吧",
+    "createFirst": "创建第一个数字员工"
+  },
+  "agent": {
+    "status": {
+      "running": "正在工作",
+      "idle": "待命中",
+      "stopped": "已停止",
+      "creating": "创建中",
+      "error": "异常"
+    },
+    "tabs": {
+      "status": "状态",
+      "tasks": "任务",
+      "mind": "心智",
+      "tools": "工具",
+      "skills": "技能",
+      "relationships": "关系",
+      "workspace": "工作区",
+      "chat": "聊天",
+      "activityLog": "工作日志",
+      "settings": "设置"
+    },
+    "fields": {
+      "name": "名称",
+      "role": "角色",
+      "avatar": "头像",
+      "personality": "人格设定",
+      "boundaries": "行为边界",
+      "lastActive": "最后活跃",
+      "tasksInProgress": "进行中",
+      "supervisions": "督办"
+    },
+    "actions": {
+      "start": "启动",
+      "stop": "停止",
+      "delete": "删除",
+      "edit": "编辑",
+      "chat": "对话",
+      "talkToMe": "与我对话"
+    },
+    "detail": {
+      "loading": "加载中...",
+      "notFound": "找不到此数字员工",
+      "backToDashboard": "返回仪表盘",
+      "humanRelationships": "人类关系",
+      "agentRelationships": "数字员工关系",
+      "searchMembers": "搜索组织架构成员...",
+      "noRelationships": "暂无关系",
+      "addRelationship": "添加关系",
+      "supervisor": "上级",
+      "colleague": "同事",
+      "subordinate": "下级",
+      "collaborator": "协作",
+      "reporter": "汇报对象"
+    },
+    "tasks": {
+      "todo": "待办",
+      "doing": "进行中",
+      "supervision": "督办",
+      "done": "完成",
+      "newTask": "新建任务",
+      "taskTitle": "任务标题",
+      "taskDesc": "任务描述（可选）",
+      "dueDate": "截止时间（可选）",
+      "addSchedule": "添加定时计划",
+      "schedule": "定时计划",
+      "cronExpression": "Cron 表达式",
+      "scheduleDesc": "调度说明（可选）",
+      "noTasks": "暂无任务",
+      "typeTask": "任务",
+      "typeSupervision": "督办",
+      "supervisionTitle": "需要跟进的事项...",
+      "supervisionConfig": "督办设置",
+      "targetPerson": "督办对象姓名",
+      "remindSchedule": "提醒频率",
+      "daily": "每天",
+      "every2days": "每隔2天",
+      "every3days": "每隔3天",
+      "weekly": "每周"
+    },
+    "soul": {
+      "title": "Soul.md — 人格定义",
+      "editButton": "编辑",
+      "saveButton": "保存",
+      "saving": "保存中...",
+      "cancelButton": "取消"
+    },
+    "memory": {
+      "title": "记忆文件",
+      "indexFile": "索引",
+      "memoryFile": "记忆"
+    },
+    "skills": {
+      "title": "技能定义",
+      "description": "技能定义了数字员工在特定场景下的行为方式。每个 .md 文件是一个技能。建议使用 YAML frontmatter（name + description）来定义技能元数据。",
+      "skillFiles": "技能文件",
+      "noSkills": "暂未定义技能",
+      "newSkill": "新建技能",
+      "flatFormat": "简单技能（单个 .md 文件）",
+      "folderFormat": "文件夹技能，可包含辅助文件（scripts/、references/）",
+      "save": "保存",
+      "delete": "删除",
+      "edit": "编辑",
+      "cancel": "取消",
+      "toolName": "工具名称",
+      "enabled": "已启用",
+      "disabled": "已禁用"
+    },
+    "toolMgmt": {
+      "title": "工具管理",
+      "description": "管理此数字员工可使用的工具。"
+    },
+    "workspace": {
+      "title": "工作区",
+      "rootDir": "根目录",
+      "uploadFile": "上传文件",
+      "newFolder": "新建文件夹",
+      "newFolderName": "文件夹名称",
+      "dragOrClick": "拖拽文件到此处或点击上传",
+      "noFiles": "暂无文件",
+      "delete": "删除",
+      "save": "保存",
+      "edit": "编辑",
+      "cancel": "取消"
+    },
+    "chat": {
+      "title": "聊天",
+      "startChat": "开始聊天",
+      "connected": "已连接",
+      "disconnected": "未连接",
+      "startConversation": "开始与 {{name}} 对话",
+      "fileSupport": "支持上传 PDF、Word、Excel、TXT 等文件",
+      "attachment": "附件",
+      "uploadFailed": "上传失败",
+      "askAboutFile": "关于 {{name}} 的问题..."
+    },
+    "activityLog": {
+      "title": "工作日志",
+      "noRecords": "暂无工作日志"
+    },
+    "settings": {
+      "title": "数字员工设置",
+      "modelConfig": "模型配置",
+      "primaryModel": "主模型",
+      "fallbackModel": "备选模型",
+      "noFallback": "无备选",
+      "conversationContext": "对话上下文",
+      "maxRounds": "最大对话轮次",
+      "roundsDesc": "每次对话最多进行的 LLM 调用轮次",
+      "tokenLimits": "Token 用量限制",
+      "dailyLimit": "每日上限",
+      "monthlyLimit": "每月上限",
+      "noLimit": "不限制",
+      "currentUsage": "当前用量",
+      "today": "今日",
+      "month": "本月",
+      "saveSettings": "保存设置",
+      "saved": "已保存",
+      "autonomy": {
+        "title": "自主性边界配置",
+        "description": "配置数字员工执行各项操作时的自主性级别",
+        "readFiles": "读取文件",
+        "readFilesDesc": "读取工作区和知识库中的文件",
+        "writeFiles": "写入文件",
+        "writeFilesDesc": "创建或修改工作区中的文件",
+        "deleteFiles": "删除文件",
+        "deleteFilesDesc": "删除工作区中的文件",
+        "sendFeishu": "发送飞书消息",
+        "sendFeishuDesc": "通过飞书给用户发送消息",
+        "webSearch": "网络搜索",
+        "webSearchDesc": "搜索互联网获取信息",
+        "manageTasks": "管理任务",
+        "manageTasksDesc": "创建、更新或删除任务",
+        "l1Auto": "L1 自动执行",
+        "l2Notify": "L2 通知",
+        "l3Approve": "L3 审批"
+      },
+      "channel": {
+        "title": "渠道配置",
+        "feishu": "飞书机器人",
+        "feishuDesc": "通过飞书机器人与数字员工对话",
+        "web": "Web 对话",
+        "webDesc": "通过网页界面与数字员工对话",
+        "api": "API 接入",
+        "apiDesc": "通过 API 与数字员工集成",
+        "appId": "App ID",
+        "appSecret": "App Secret",
+        "encryptKey": "Encrypt Key",
+        "webhookUrl": "Webhook URL",
+        "configured": "已配置",
+        "notConfigured": "未配置",
+        "saveChannel": "保存配置"
+      },
+      "danger": {
+        "title": "危险操作",
+        "deleteAgent": "删除数字员工",
+        "deleteWarning": "此操作不可逆，将永久删除此数字员工及其所有数据。",
+        "confirmDelete": "确认删除",
+        "typeToConfirm": "输入数字员工名称以确认"
+      }
+    },
+    "toolCategories": {
+      "file": "文件操作",
+      "task": "任务管理",
+      "communication": "通讯",
+      "search": "搜索",
+      "custom": "自定义",
+      "general": "通用"
+    },
+    "upload": {
+      "success": "上传成功",
+      "failed": "上传失败",
+      "uploading": "上传中..."
+    }
+  },
+  "wizard": {
+    "steps": {
+      "basicInfo": "基本信息",
+      "personality": "人格设定",
+      "skills": "技能配置",
+      "permissions": "权限设置",
+      "channel": "通道绑定"
+    },
+    "next": "下一步",
+    "prev": "上一步",
+    "finish": "完成创建",
+    "nameHint": "给你的数字员工起个名字",
+    "roleHint": "描述它的角色定位",
+    "step1": {
+      "title": "基础信息与模型选择",
+      "selectTemplate": "选择模板（可选）",
+      "custom": "自定义",
+      "primaryModel": "主模型",
+      "noModels": "暂无可用模型，请先在",
+      "enterpriseSettings": "企业设置",
+      "addModels": "中添加 LLM 模型",
+      "dailyTokenLimit": "每日 Token 上限",
+      "monthlyTokenLimit": "每月 Token 上限",
+      "unlimited": "不限制",
+      "namePlaceholder": "例：小智"
+    },
+    "step2": {
+      "title": "人格与边界",
+      "personalityPlaceholder": "认真负责、数据驱动、主动汇报...",
+      "boundariesPlaceholder": "不可修改财务数据、对外沟通需经审批..."
+    },
+    "step3": {
+      "title": "技能配置",
+      "description": "选择数字员工的技能，创建后可在详情页继续编辑。",
+      "infoSearch": "信息搜索",
+      "infoSearchDesc": "联网搜索和信息检索",
+      "dataAnalysis": "数据分析",
+      "dataAnalysisDesc": "数据查询和报表生成",
+      "contentCreation": "内容创作",
+      "contentCreationDesc": "文案撰写和内容编辑",
+      "codeDev": "代码开发",
+      "codeDevDesc": "代码编写和技术文档",
+      "emailMgmt": "邮件管理",
+      "emailMgmtDesc": "邮件收发和日程管理",
+      "fileProcessing": "文件处理",
+      "fileProcessingDesc": "文档解析和格式转换"
+    },
+    "step4": {
+      "title": "权限设置",
+      "companyWide": "全公司可见",
+      "companyWideDesc": "所有人都可以使用此数字员工",
+      "department": "指定部门",
+      "departmentDesc": "仅选定部门成员可使用",
+      "selfOnly": "仅自己",
+      "selfOnlyDesc": "仅创建者本人可使用"
+    },
+    "step5": {
+      "title": "飞书机器人配置（可选）",
+      "description": "为数字员工配置独立的飞书机器人，用户可在飞书中直接与其对话。此步骤可跳过，创建后仍可在详情页「设置」中配置。",
+      "configSteps": "配置步骤：",
+      "step1Feishu": "登录",
+      "feishuPlatform": "飞书开放平台",
+      "step2Feishu": "创建企业自建应用 → 开启机器人能力",
+      "step3Feishu": "复制 App ID 和 App Secret 填入下方",
+      "step4Feishu": "创建后，将获得 Webhook URL 用于配置事件回调",
+      "encryptKeyOptional": "Encrypt Key（可选）",
+      "encryptKeyPlaceholder": "用于事件加密验证",
+      "skipHint": "跳过此步骤后，数字员工仍可通过 Web 端进行对话"
+    },
+    "summary": {
+      "unnamed": "未命名",
+      "model": "模型",
+      "dailyLimit": "日限"
+    }
+  },
+  "task": {
+    "todo": "待办",
+    "doing": "进行中",
+    "supervision": "督办",
+    "done": "已完成",
+    "createTask": "新建任务",
+    "priority": {
+      "low": "低",
+      "medium": "中",
+      "high": "高",
+      "urgent": "紧急"
+    }
+  },
+  "chat": {
+    "placeholder": "输入消息...",
+    "send": "发送"
+  },
+  "enterprise": {
+    "title": "企业设置",
+    "tabs": {
+      "llm": "模型池",
+      "tools": "工具管理",
+      "org": "组织架构",
+      "info": "公司管理",
+      "audit": "审计日志",
+      "config": "平台配置",
+      "kb": "公司知识库",
+      "approvals": "审批",
+      "skills": "技能管理"
+    },
+    "stats": {
+      "users": "{{count}} 用户",
+      "runningAgents": "{{running}}/{{total}} 运行中"
+    },
+    "llm": {
+      "addModel": "添加模型",
+      "noModels": "暂无数据",
+      "provider": "提供商",
+      "model": "模型",
+      "label": "显示名称",
+      "apiKey": "API Key",
+      "baseUrl": "Base URL（可选）",
+      "enabled": "启用",
+      "disabled": "禁用",
+      "save": "保存",
+      "delete": "删除",
+      "edit": "编辑",
+      "cancel": "取消"
+    },
+    "tools": {
+      "title": "全局工具管理",
+      "testConnection": "测试连接",
+      "testing": "测试中...",
+      "connectionSuccess": "连接成功！发现 {{count}} 个工具",
+      "connectionFailed": "连接失败",
+      "importAll": "导入全部",
+      "mcpServerName": "MCP 服务名称",
+      "mcpServerUrl": "MCP Server URL",
+      "configure": "配置",
+      "collapse": "收起",
+      "saveConfig": "保存配置",
+      "description": "描述",
+      "parameters": "参数配置"
+    },
+    "org": {
+      "feishuSync": "飞书通讯录同步配置",
+      "appId": "App ID",
+      "appSecret": "App Secret",
+      "syncing": "同步中...",
+      "syncNow": "同步",
+      "syncComplete": "同步完成：{{departments}} 个部门，{{members}} 个成员",
+      "orgBrowser": "组织架构浏览",
+      "allDepartments": "全部",
+      "searchMembers": "搜索成员...",
+      "member": "成员",
+      "admin": "管理员",
+      "noMembers": "暂无成员"
+    },
+    "config": {
+      "title": "平台配置",
+      "publicUrl": "公网地址 (PUBLIC_BASE_URL)",
+      "publicUrlPlaceholder": "例：https://xxx.cpolar.top",
+      "maxRounds": "Agent 对话轮次上限",
+      "maxRoundsPlaceholder": "默认 20",
+      "save": "保存",
+      "saved": "已保存",
+      "themeColor": "主题色"
+    },
+    "kb": {
+      "title": "公司知识库",
+      "rootDir": "根目录",
+      "uploadFile": "上传文件",
+      "newFolder": "新建文件夹",
+      "folderName": "文件夹名称",
+      "noFiles": "暂无文件",
+      "dragOrClick": "拖拽或点击上传",
+      "delete": "删除",
+      "save": "保存",
+      "edit": "编辑",
+      "cancel": "取消",
+      "viewFile": "查看文件",
+      "confirmDelete": "确认删除"
+    },
+    "audit": {
+      "title": "审计日志",
+      "noRecords": "暂无审计记录",
+      "time": "时间",
+      "user": "用户",
+      "action": "操作",
+      "target": "对象"
+    }
+  },
+  "common": {
+    "save": "保存",
+    "cancel": "取消",
+    "confirm": "确认",
+    "delete": "删除",
+    "search": "搜索",
+    "loading": "加载中...",
+    "noData": "暂无数据",
+    "error": "出错了",
+    "close": "关闭",
+    "edit": "编辑",
+    "back": "返回",
+    "yes": "是",
+    "no": "否",
+    "all": "全部",
+    "none": "无"
+  }
+}

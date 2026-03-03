@@ -1,0 +1,14 @@
+# ClawCrew
+node_modules/
+dist/
+build/
+__pycache__/
+*.pyc
+.env
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+*.db
+.DS_Store
