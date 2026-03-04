@@ -92,6 +92,19 @@ Agent 可以在运行时**发现并安装新工具**。当 Agent 遇到无法处
 - Python 3.12+
 - Node.js 20+
 - PostgreSQL 15+（或 SQLite 快速测试）
+- 2 核 CPU / 4 GB 内存 / 30 GB 磁盘（最低配置）
+- 可访问 LLM API
+
+> **说明：** Clawith 不在本地运行任何 AI 模型——所有 LLM 推理均由外部 API 提供商处理（OpenAI、Anthropic 等）。本地部署本质上是一个标准 Web 应用 + Docker 编排。
+
+#### 各场景推荐配置
+
+| 场景 | CPU | 内存 | 磁盘 | 说明 |
+|---|---|---|---|---|
+| 个人体验 / Demo | 1 核 | 2 GB | 20 GB | 使用 SQLite，无需启动 Agent 容器 |
+| 完整体验（1–2 个 Agent） | 2 核 | 4 GB | 30 GB | ✅ 推荐入门配置 |
+| 小团队（3–5 个 Agent） | 2–4 核 | 4–8 GB | 50 GB | 建议使用 PostgreSQL |
+| 生产部署 | 4+ 核 | 8+ GB | 50+ GB | 多租户、高并发场景 |
 
 ### 一键安装
 
@@ -101,7 +114,12 @@ cd Clawith
 bash setup.sh
 ```
 
-自动完成：创建 `.env` → 安装后端/前端依赖 → 建表 → 初始化默认公司、模板和技能。
+自动完成：创建 `.env` → 创建 PostgreSQL 用户和数据库 → 安装后端/前端依赖 → 建表 → 初始化默认公司、模板和技能。
+
+> **注意：** 如果 PostgreSQL 使用非默认端口或自定义凭据，请先创建 `.env` 文件并设置 `DATABASE_URL`，然后再运行 `setup.sh`。本地开发需要在 URL 末尾添加 `?ssl=disable` 以避免连接卡死：
+> ```
+> DATABASE_URL=postgresql+asyncpg://user:pass@localhost:5432/clawith?ssl=disable
+> ```
 
 启动服务：
 
@@ -149,16 +167,9 @@ docker compose up -d
 
 ---
 
-## 🔒 生产部署
+## 🔒 安全清单
 
-| 要求 | 最低配置 |
-|---|---|
-| CPU | 4 核 |
-| 内存 | 8 GB |
-| 磁盘 | 50 GB SSD |
-| 网络 | 可访问 LLM API |
-
-**安全清单：** 修改默认密码 · 设置强 `SECRET_KEY` / `JWT_SECRET_KEY` · 启用 HTTPS · 生产环境使用 PostgreSQL · 定期备份 · 限制 Docker socket 访问。
+修改默认密码 · 设置强 `SECRET_KEY` / `JWT_SECRET_KEY` · 启用 HTTPS · 生产环境使用 PostgreSQL · 定期备份 · 限制 Docker socket 访问。
 
 ## 📄 许可证
 

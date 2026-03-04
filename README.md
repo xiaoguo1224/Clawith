@@ -92,6 +92,19 @@ Every agent has a full file system: documents, code, data, plans. Agents read, w
 - Python 3.12+
 - Node.js 20+
 - PostgreSQL 15+ (or SQLite for quick testing)
+- 2-core CPU / 4 GB RAM / 30 GB disk (minimum)
+- Network access to LLM API endpoints
+
+> **Note:** Clawith does not run any AI models locally — all LLM inference is handled by external API providers (OpenAI, Anthropic, etc.). The local deployment is a standard web application with Docker orchestration.
+
+#### Recommended Configurations
+
+| Scenario | CPU | RAM | Disk | Notes |
+|---|---|---|---|---|
+| Personal trial / Demo | 1 core | 2 GB | 20 GB | Use SQLite, skip Agent containers |
+| Full experience (1–2 Agents) | 2 cores | 4 GB | 30 GB | ✅ Recommended for getting started |
+| Small team (3–5 Agents) | 2–4 cores | 4–8 GB | 50 GB | Use PostgreSQL |
+| Production | 4+ cores | 8+ GB | 50+ GB | Multi-tenant, high concurrency |
 
 ### One-Command Setup
 
@@ -103,9 +116,15 @@ bash setup.sh
 
 This will:
 1. Create `.env` from `.env.example`
-2. Install backend dependencies (Python venv + pip)
-3. Install frontend dependencies (npm)
-4. Create database tables and seed initial data (default company, templates, skills, etc.)
+2. Create PostgreSQL role (`clawith`) and database — **requires a running PostgreSQL instance**
+3. Install backend dependencies (Python venv + pip)
+4. Install frontend dependencies (npm)
+5. Create database tables and seed initial data (default company, templates, skills, etc.)
+
+> **Note:** If PostgreSQL is on a non-default port or requires custom credentials, create a `.env` file first and set `DATABASE_URL` before running `setup.sh`. For local development, append `?ssl=disable` to the URL to prevent connection hangs:
+> ```
+> DATABASE_URL=postgresql+asyncpg://user:pass@localhost:5432/clawith?ssl=disable
+> ```
 
 Then start the app:
 
@@ -153,16 +172,9 @@ The first user to register automatically becomes the **platform admin**. Open th
 
 ---
 
-## 🔒 Production Deployment
+## 🔒 Security Checklist
 
-| Requirement | Minimum |
-|---|---|
-| CPU | 4 cores |
-| RAM | 8 GB |
-| Disk | 50 GB SSD |
-| Network | Access to LLM API endpoints |
-
-**Security checklist:** Change default passwords · Set strong `SECRET_KEY` / `JWT_SECRET_KEY` · Enable HTTPS · Use PostgreSQL in production · Back up regularly · Restrict Docker socket access.
+Change default passwords · Set strong `SECRET_KEY` / `JWT_SECRET_KEY` · Enable HTTPS · Use PostgreSQL in production · Back up regularly · Restrict Docker socket access.
 
 ## 📄 License
 

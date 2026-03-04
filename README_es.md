@@ -87,15 +87,41 @@ Cada agente tiene un sistema de archivos completo: documentos, código, datos, p
 
 ## 🚀 Inicio Rápido
 
+### Requisitos
+- Python 3.12+
+- Node.js 20+
+- PostgreSQL 15+ (o SQLite para pruebas rápidas)
+- CPU de 2 núcleos / 4 GB RAM / 30 GB disco (mínimo)
+- Acceso de red a endpoints de API LLM
+
+> **Nota:** Clawith no ejecuta ningún modelo de IA localmente — toda la inferencia LLM es manejada por proveedores de API externos (OpenAI, Anthropic, etc.). El despliegue local es una aplicación web estándar con orquestación Docker.
+
+#### Configuraciones Recomendadas
+
+| Escenario | CPU | RAM | Disco | Notas |
+|---|---|---|---|---|
+| Prueba personal / Demo | 1 núcleo | 2 GB | 20 GB | Usar SQLite, sin contenedores Agent |
+| Experiencia completa (1–2 Agents) | 2 núcleos | 4 GB | 30 GB | ✅ Recomendado para empezar |
+| Equipo pequeño (3–5 Agents) | 2–4 núcleos | 4–8 GB | 50 GB | Usar PostgreSQL |
+| Producción | 4+ núcleos | 8+ GB | 50+ GB | Multi-inquilino, alta concurrencia |
+
+### Instalación
+
 ```bash
 git clone https://github.com/dataelement/Clawith.git
 cd Clawith
-bash setup.sh     # Instala dependencias + inicializa DB automáticamente
+bash setup.sh     # Crea usuario/BD PostgreSQL + instala dependencias + inicializa BD
 bash restart.sh   # Inicia los servicios
 # → http://localhost:3008
 ```
 
+> **Nota:** PostgreSQL debe estar en ejecución antes de ejecutar `setup.sh`. Para desarrollo local, añade `?ssl=disable` a `DATABASE_URL`.
+
 El primer usuario en registrarse se convierte automáticamente en **administrador de la plataforma**.
+
+## 🔒 Lista de Seguridad
+
+Cambiar contraseñas predeterminadas · Configurar `SECRET_KEY` / `JWT_SECRET_KEY` fuertes · Habilitar HTTPS · Usar PostgreSQL en producción · Hacer copias de seguridad regularmente · Restringir acceso al socket Docker.
 
 ## 📄 Licencia
 

@@ -87,15 +87,41 @@ Clawith は、オープンソースのマルチエージェントコラボレー
 
 ## 🚀 クイックスタート
 
+### 動作環境
+- Python 3.12+
+- Node.js 20+
+- PostgreSQL 15+（クイックテストには SQLite も可）
+- 2コア CPU / 4 GB メモリ / 30 GB ディスク（最小構成）
+- LLM API へのネットワークアクセス
+
+> **注意:** Clawith はローカルで AI モデルを実行しません。すべての LLM 推論は外部 API プロバイダー（OpenAI、Anthropic など）が処理します。ローカルデプロイは標準的な Web アプリケーション + Docker オーケストレーションです。
+
+#### 推奨構成
+
+| シナリオ | CPU | メモリ | ディスク | 備考 |
+|---|---|---|---|---|
+| 個人体験 / デモ | 1コア | 2 GB | 20 GB | SQLite 使用、Agent コンテナ不要 |
+| フル体験（1–2 Agent） | 2コア | 4 GB | 30 GB | ✅ 入門推奨 |
+| 小チーム（3–5 Agent） | 2–4コア | 4–8 GB | 50 GB | PostgreSQL 推奨 |
+| 本番環境 | 4+コア | 8+ GB | 50+ GB | マルチテナント、高同時接続 |
+
+### セットアップ
+
 ```bash
 git clone https://github.com/dataelement/Clawith.git
 cd Clawith
-bash setup.sh     # 依存関係インストール + DB初期化を自動実行
+bash setup.sh     # PostgreSQLユーザー/DB作成 + 依存関係 + DB初期化を自動実行
 bash restart.sh   # サービス起動
 # → http://localhost:3008
 ```
 
+> **注意：** `setup.sh` を実行する前に PostgreSQL が起動している必要があります。ローカル開発では `DATABASE_URL` に `?ssl=disable` を追加してください。
+
 最初に登録したユーザーが自動的に**プラットフォーム管理者**になります。
+
+## 🔒 セキュリティチェックリスト
+
+デフォルトパスワードの変更 · 強力な `SECRET_KEY` / `JWT_SECRET_KEY` の設定 · HTTPS の有効化 · 本番環境では PostgreSQL を使用 · 定期的なバックアップ · Docker socket アクセスの制限。
 
 ## 📄 ライセンス
 

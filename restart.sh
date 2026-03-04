@@ -43,12 +43,31 @@ wait_for_port() {
 
 cleanup
 
+# Ensure PostgreSQL is running
+if ! pg_isready -h localhost -p 5432 -q 2>/dev/null; then
+    echo -e "${YELLOW}🐘 Starting PostgreSQL...${NC}"
+    brew services start postgresql@15 2>/dev/null || brew services start postgresql 2>/dev/null || true
+    for i in $(seq 1 10); do
+        if pg_isready -h localhost -p 5432 -q 2>/dev/null; then
+            echo -e "  ${GREEN}✅ PostgreSQL ready (${i}s)${NC}"
+            break
+        fi
+        sleep 1
+        if [ "$i" -eq 10 ]; then
+            echo -e "  ${RED}❌ PostgreSQL failed to start${NC}"
+            exit 1
+        fi
+    done
+else
+    echo -e "${GREEN}🐘 PostgreSQL already running${NC}"
+fi
+
 # Start backend
 echo -e "${YELLOW}🚀 Starting backend...${NC}"
 cd "$BACKEND_DIR"
 nohup env PYTHONUNBUFFERED=1 \
     PUBLIC_BASE_URL="${PUBLIC_BASE_URL:-}" \
-    DATABASE_URL="postgresql+asyncpg://clawith:clawith@localhost:5433/clawith" \
+    DATABASE_URL="postgresql+asyncpg://clawith:clawith@localhost:5432/clawith?ssl=disable" \
     .venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8008 \
     > "$BACKEND_LOG" 2>&1 &
 echo $! > "$BACKEND_PID"
