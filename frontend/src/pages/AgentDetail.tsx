@@ -2257,7 +2257,7 @@ export default function AgentDetail() {
                                             </div>
                                             {slackConfig && <span className={`badge ${slackConfig.is_configured ? 'badge-success' : 'badge-warning'}`}>{slackConfig.is_configured ? t('agent.settings.channel.configured') : t('agent.settings.channel.notConfigured')}</span>}
                                         </div>
-                                        {slackConfig ? (
+                                        {slackConfig?.is_configured ? (
                                             <div>
                                                 <div style={{ background: 'var(--bg-secondary)', borderRadius: '6px', padding: '10px', fontSize: '12px', fontFamily: 'var(--font-mono)', marginBottom: '12px' }}>
                                                     <div style={{ color: 'var(--text-tertiary)', marginBottom: '6px' }}>Webhook URL (Event Subscriptions URL)</div>
@@ -2310,7 +2310,7 @@ export default function AgentDetail() {
                                             </div>
                                             {discordConfig && <span className={`badge ${discordConfig.is_configured ? 'badge-success' : 'badge-warning'}`}>{discordConfig.is_configured ? t('agent.settings.channel.configured') : t('agent.settings.channel.notConfigured')}</span>}
                                         </div>
-                                        {discordConfig ? (
+                                        {discordConfig?.is_configured ? (
                                             <div>
                                                 <div style={{ background: 'var(--bg-secondary)', borderRadius: '6px', padding: '10px', fontSize: '12px', fontFamily: 'var(--font-mono)', marginBottom: '12px' }}>
                                                     <div style={{ color: 'var(--text-tertiary)', marginBottom: '6px' }}>Interactions Endpoint URL</div>
