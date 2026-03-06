@@ -137,6 +137,8 @@ async def delete_channel_config(
 
 # Simple in-memory dedup to avoid processing retried events
 _processed_events: set[str] = set()
+# Cache: (agent_id_str, feishu_conv_id) → session_uuid_str  (reset on server restart)
+_feishu_session_cache: dict[tuple, str] = {}
 
 
 @router.post("/channel/feishu/{agent_id}/webhook")
@@ -219,10 +221,13 @@ async def feishu_event_webhook(
             creator_id = agent_obj.creator_id if agent_obj else agent_id
             ctx_size = agent_obj.context_window_size if agent_obj else 100
 
-            # Load recent conversation history
+            # Load recent conversation history using cached session_conv_id (if available)
+            _cache_key = (str(agent_id), conv_id)
+            _cached_sid = _feishu_session_cache.get(_cache_key)
+            _history_conv_id = _cached_sid if _cached_sid else conv_id  # old format fallback
             history_result = await db.execute(
                 select(ChatMessage)
-                .where(ChatMessage.agent_id == agent_id, ChatMessage.conversation_id == conv_id)
+                .where(ChatMessage.agent_id == agent_id, ChatMessage.conversation_id == _history_conv_id)
                 .order_by(ChatMessage.created_at.desc())
                 .limit(ctx_size)
             )
@@ -299,8 +304,38 @@ async def feishu_event_webhook(
                 platform_user_id = new_user.id
                 print(f"[Feishu] Auto-created user: {sender_name} -> {new_username}")
 
-            # Save user message with resolved platform user ID
-            db.add(ChatMessage(agent_id=agent_id, user_id=platform_user_id, role="user", content=user_text, conversation_id=conv_id))
+            # ── Find-or-create a ChatSession for this Feishu conversation ──
+            from app.models.chat_session import ChatSession as _ChatSession
+            from datetime import datetime as _dt, timezone as _tz
+
+            _cache_key2 = (str(agent_id), conv_id)
+            _cached_session_id = _feishu_session_cache.get(_cache_key2)
+            _sess = None
+
+            if _cached_session_id:
+                # Fast path: look up by cached session UUID
+                _sr = await db.execute(select(_ChatSession).where(_ChatSession.id == _cached_session_id))
+                _sess = _sr.scalar_one_or_none()
+
+            if not _sess:
+                # Create a new session for this Feishu conversation
+                _now = _dt.now(_tz.utc)
+                _sess = _ChatSession(
+                    agent_id=agent_id,
+                    user_id=platform_user_id,
+                    title=user_text[:40],  # first message as title
+                    created_at=_now,
+                )
+                db.add(_sess)
+                await db.flush()  # get the UUID
+                _feishu_session_cache[_cache_key2] = str(_sess.id)
+                print(f"[Feishu] Created new session {_sess.id} for {conv_id}")
+
+            session_conv_id = str(_sess.id)
+
+            # Save user message
+            db.add(ChatMessage(agent_id=agent_id, user_id=platform_user_id, role="user", content=user_text, conversation_id=session_conv_id))
+            _sess.last_message_at = _dt.now(_tz.utc)
             await db.commit()
 
 
@@ -349,8 +384,9 @@ async def feishu_event_webhook(
                     except Exception as e:
                         print(f"[Feishu] Failed to create task: {e}")
 
-            # Save assistant reply to history
-            db.add(ChatMessage(agent_id=agent_id, user_id=creator_id, role="assistant", content=reply_text, conversation_id=conv_id))
+            # Save assistant reply to history (use platform_user_id so messages stay in one session)
+            db.add(ChatMessage(agent_id=agent_id, user_id=platform_user_id, role="assistant", content=reply_text, conversation_id=session_conv_id))
+            _sess.last_message_at = _dt.now(_tz.utc)
             await db.commit()
             # Send reply via Feishu
             try:
