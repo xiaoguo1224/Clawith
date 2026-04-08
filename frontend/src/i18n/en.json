@@ -1363,7 +1363,9 @@
       "botSecret": "Bot Secret",
       "appKey": "App Key",
       "appSecret": "App Secret",
+      "wecomAgentIdHint": "Self-built application AgentId — required for web scan login (qrConnect).",
       "wecomNotice": {
+        "expand": "WeCom: ICP, trusted IP, and other constraints",
         "title": "Prerequisites for WeCom Integration",
         "syncTitle": "1. User Directory Sync",
         "syncDesc": "Directory sync via the contacts secret works for fetching user IDs. However, fetching full user details (name, avatar, email) requires the self-built app's IP to be whitelisted in WeCom — a setting that must be configured by the WeCom enterprise admin.",

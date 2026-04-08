@@ -576,7 +576,7 @@ function OrgTab({ tenant }: { tenant: any }) {
         return (
             <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid var(--border-subtle)' }}>
                 {/* Setup Guide moved to the top */}
-                {['feishu', 'dingtalk'].includes(type) && (
+                {['feishu', 'dingtalk', 'wecom'].includes(type) && (
                     <div style={{ background: 'var(--bg-primary)', padding: '16px', borderRadius: '8px', border: '1px solid var(--border-subtle)', marginBottom: '20px', fontSize: '12px' }}>
                         <div style={{ fontWeight: 600, fontSize: '13px', marginBottom: '8px', color: 'var(--text-primary)' }}>
                             👉 {t('enterprise.org.syncSetupGuide', 'Setup Guide & Required Permissions')}
@@ -655,53 +655,72 @@ function OrgTab({ tenant }: { tenant: any }) {
                         </div>
                     </div>
                 ) : type === 'wecom' ? (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0' }}>
-                        {/* Prerequisites notice — all strings via i18n */}
-                        <div style={{
-                            padding: '16px',
-                            borderRadius: '8px',
-                            border: '1px solid var(--border-subtle)',
-                            background: 'var(--bg-primary)',
-                            fontSize: '13px',
-                            lineHeight: 1.7,
-                            color: 'var(--text-secondary)',
-                        }}>
-                            <div style={{ fontWeight: 600, fontSize: '13px', color: 'var(--text-primary)', marginBottom: '10px' }}>
-                                {t('enterprise.identity.wecomNotice.title')}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                            <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                                <div style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>{t('enterprise.identity.providerHints.wecom')}</div>
                             </div>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                                <div>
-                                    <div style={{ fontWeight: 500, color: 'var(--text-primary)', marginBottom: '3px' }}>
-                                        {t('enterprise.identity.wecomNotice.syncTitle')}
-                                    </div>
-                                    <div style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>
-                                        {t('enterprise.identity.wecomNotice.syncDesc')}
-                                    </div>
-                                </div>
-                                <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: '10px' }}>
-                                    <div style={{ fontWeight: 500, color: 'var(--text-primary)', marginBottom: '3px' }}>
-                                        {t('enterprise.identity.wecomNotice.ssoTitle')}
-                                    </div>
-                                    <div style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>
-                                        {t('enterprise.identity.wecomNotice.ssoDesc')}
-                                    </div>
-                                </div>
-                                <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: '10px' }}>
-                                    <div style={{ fontWeight: 500, color: 'var(--text-primary)', marginBottom: '3px' }}>
-                                        {t('enterprise.identity.wecomNotice.messagingTitle')}
-                                    </div>
-                                    <div style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>
-                                        {t('enterprise.identity.wecomNotice.messagingDesc')}
-                                    </div>
-                                </div>
+                            <div className="form-group">
+                                <label className="form-label">{t('enterprise.identity.corpId')}</label>
+                                <input
+                                    className="form-input"
+                                    value={form.config.corp_id || ''}
+                                    onChange={e => setForm({ ...form, config: { ...form.config, corp_id: e.target.value } })}
+                                    placeholder="wwxxxxxxxxxxxx"
+                                    autoComplete="off"
+                                />
                             </div>
-                            <div style={{ marginTop: '14px', paddingTop: '12px', borderTop: '1px solid var(--border-subtle)', fontSize: '12px', color: 'var(--text-tertiary)', lineHeight: 1.6 }}>
-                                {t('enterprise.identity.wecomNotice.footerText')}
+                            <div className="form-group">
+                                <label className="form-label">{t('enterprise.identity.secret')}</label>
+                                <input
+                                    className="form-input"
+                                    type="password"
+                                    value={form.config.secret || ''}
+                                    onChange={e => setForm({ ...form, config: { ...form.config, secret: e.target.value } })}
+                                    placeholder="••••••••"
+                                    autoComplete="new-password"
+                                />
+                            </div>
+                            <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                                <label className="form-label">{t('enterprise.identity.agentId')}</label>
+                                <input
+                                    className="form-input"
+                                    value={form.config.agent_id || ''}
+                                    onChange={e => setForm({ ...form, config: { ...form.config, agent_id: e.target.value } })}
+                                    placeholder="1000001"
+                                    autoComplete="off"
+                                />
+                                <div style={{ fontSize: '10px', color: 'var(--text-tertiary)', marginTop: '4px' }}>
+                                    {t('enterprise.identity.wecomAgentIdHint', 'Self-built app AgentId — required for scan-to-login (qrConnect).')}
+                                </div>
                             </div>
                         </div>
+                        <details style={{ fontSize: '12px', color: 'var(--text-secondary)', lineHeight: 1.65 }}>
+                            <summary style={{ cursor: 'pointer', fontWeight: 500, color: 'var(--text-primary)' }}>
+                                {t('enterprise.identity.wecomNotice.expand', 'WeCom: ICP, trusted IP, and other constraints')}
+                            </summary>
+                            <div style={{ marginTop: '12px', padding: '12px', borderRadius: '8px', border: '1px solid var(--border-subtle)', background: 'var(--bg-primary)' }}>
+                                <div style={{ fontWeight: 600, marginBottom: '8px' }}>{t('enterprise.identity.wecomNotice.title')}</div>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                    <div>
+                                        <div style={{ fontWeight: 500, color: 'var(--text-primary)', marginBottom: '3px' }}>{t('enterprise.identity.wecomNotice.syncTitle')}</div>
+                                        <div style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>{t('enterprise.identity.wecomNotice.syncDesc')}</div>
+                                    </div>
+                                    <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: '10px' }}>
+                                        <div style={{ fontWeight: 500, color: 'var(--text-primary)', marginBottom: '3px' }}>{t('enterprise.identity.wecomNotice.ssoTitle')}</div>
+                                        <div style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>{t('enterprise.identity.wecomNotice.ssoDesc')}</div>
+                                    </div>
+                                    <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: '10px' }}>
+                                        <div style={{ fontWeight: 500, color: 'var(--text-primary)', marginBottom: '3px' }}>{t('enterprise.identity.wecomNotice.messagingTitle')}</div>
+                                        <div style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>{t('enterprise.identity.wecomNotice.messagingDesc')}</div>
+                                    </div>
+                                </div>
+                                <div style={{ marginTop: '12px', paddingTop: '10px', borderTop: '1px solid var(--border-subtle)', fontSize: '12px', color: 'var(--text-tertiary)' }}>
+                                    {t('enterprise.identity.wecomNotice.footerText')}
+                                </div>
+                            </div>
+                        </details>
                     </div>
-
-
                 ) : type === 'dingtalk' ? (
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                         <div className="form-group" style={{ gridColumn: '1 / -1' }}>
@@ -732,22 +751,19 @@ function OrgTab({ tenant }: { tenant: any }) {
                     </div>
                 ) : null}
 
-                {/* Hide save/delete for WeCom while config is disabled */}
-                {type !== 'wecom' && (
-                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '16px' }}>
-                        <button className="btn btn-primary btn-sm" onClick={save} disabled={savingProvider}>
-                            {savingProvider ? t('common.loading') : t('common.save', 'Save')}
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '16px' }}>
+                    <button className="btn btn-primary btn-sm" onClick={save} disabled={savingProvider}>
+                        {savingProvider ? t('common.loading') : t('common.save', 'Save')}
+                    </button>
+                    {saveProviderOk && (
+                        <span style={{ fontSize: '12px', color: 'var(--success)' }}>Saved</span>
+                    )}
+                    {existingProvider && (
+                        <button className="btn btn-ghost btn-sm" style={{ color: 'var(--error)' }} onClick={() => confirm('Are you sure you want to delete this configuration?') && deleteProvider.mutate(existingProvider.id)}>
+                            {t('common.delete', 'Delete')}
                         </button>
-                        {saveProviderOk && (
-                            <span style={{ fontSize: '12px', color: 'var(--success)' }}>Saved</span>
-                        )}
-                        {existingProvider && (
-                            <button className="btn btn-ghost btn-sm" style={{ color: 'var(--error)' }} onClick={() => confirm('Are you sure you want to delete this configuration?') && deleteProvider.mutate(existingProvider.id)}>
-                                {t('common.delete', 'Delete')}
-                            </button>
-                        )}
-                    </div>
-                )}
+                    )}
+                </div>
                 {/* WeCom App IP Whitelist verification URL — hidden while WeCom config is disabled */}
                 {type === 'wecom' && false && editingId && (existingProvider?.config?.verify_token || form.config?.verify_token) && (() => {
                     const verifyToken = form.config?.verify_token || existingProvider?.config?.verify_token || '';

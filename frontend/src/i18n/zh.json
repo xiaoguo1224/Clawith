@@ -1529,7 +1529,9 @@
       "botSecret": "机器人密钥",
       "appKey": "App Key",
       "appSecret": "App Secret",
+      "wecomAgentIdHint": "自建应用的 AgentId，网页扫码登录（qrConnect）必填。",
       "wecomNotice": {
+        "expand": "企业微信：备案、可信 IP 等限制说明",
         "title": "企业微信集成前置条件",
         "syncTitle": "1. 通讯录同步",
         "syncDesc": "通过通讯录 Secret 可以获取成员 ID，但要同步完整信息（姓名、头像、邮箱），需要将服务器 IP 加入企微自建应用的「企业可信IP」白名单，该操作需由企微管理员完成。",
