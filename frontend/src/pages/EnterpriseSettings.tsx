@@ -464,6 +464,17 @@ function OrgTab({ tenant }: { tenant: any }) {
         }
     };
 
+    /** Prefer newest row when duplicates exist (legacy data before DB unique constraint). */
+    const pickPreferredProviderRow = (rows: any[]) => {
+        if (!rows.length) return undefined;
+        return [...rows].sort((a, b) => {
+            const ua = new Date(a.updated_at || a.created_at || 0).getTime();
+            const ub = new Date(b.updated_at || b.created_at || 0).getTime();
+            if (ub !== ua) return ub - ua;
+            return String(a.id).localeCompare(String(b.id));
+        })[0];
+    };
+
     const IDP_TYPES = [
         { type: 'feishu', name: 'Feishu', desc: 'Feishu / Lark Integration', icon: <img src="/feishu.png" width="20" height="20" alt="Feishu" /> },
         { type: 'wecom', name: 'WeCom', desc: 'WeChat Work Integration', icon: <img src="/wecom.png" width="20" height="20" style={{ borderRadius: '4px' }} alt="WeCom" /> },
@@ -911,7 +922,8 @@ function OrgTab({ tenant }: { tenant: any }) {
 
                 <div style={{ display: 'flex', flexDirection: 'column' }}>
                     {IDP_TYPES.map((idp, index) => {
-                        const existingProvider = providers.find((p: any) => p.provider_type === idp.type);
+                        const sameType = providers.filter((p: any) => p.provider_type === idp.type);
+                        const existingProvider = pickPreferredProviderRow(sameType);
                         const isExpanded = expandedType === idp.type;
 
                         return (

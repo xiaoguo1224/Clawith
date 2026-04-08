@@ -11,7 +11,11 @@ from app.database import Base
 
 
 class IdentityProvider(Base):
-    """Configuration for external identity providers (Feishu, DingTalk, WeCom, etc.)."""
+    """Configuration for external identity providers (Feishu, DingTalk, WeCom, etc.).
+
+    For provider_type in (feishu, dingtalk, wecom), each tenant_id may have at most one row
+    (partial unique index in DB). Multiple oauth2 rows per tenant are allowed.
+    """
 
     __tablename__ = "identity_providers"
 

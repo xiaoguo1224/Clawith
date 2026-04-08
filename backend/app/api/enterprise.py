@@ -879,16 +879,68 @@ def validate_provider_config(provider_type: str, config: dict):
     return
 
 
+# One row per tenant for built-in directory channels; generic oauth2 allows multiple rows.
+SINGLE_SLOT_IDENTITY_PROVIDER_TYPES = frozenset({"feishu", "dingtalk", "wecom"})
+
+
+async def _upsert_single_slot_identity_provider(
+    db: AsyncSession,
+    *,
+    tid: uuid.UUID,
+    data: IdentityProviderCreate,
+) -> IdentityProvider | None:
+    """If a feishu/dingtalk/wecom row already exists for this tenant, merge payload and return it."""
+    if data.provider_type not in SINGLE_SLOT_IDENTITY_PROVIDER_TYPES:
+        return None
+    result = await db.execute(
+        select(IdentityProvider).where(
+            IdentityProvider.tenant_id == tid,
+            IdentityProvider.provider_type == data.provider_type,
+        )
+    )
+    existing = result.scalar_one_or_none()
+    if not existing:
+        return None
+
+    new_config = (existing.config or {}).copy()
+    new_config.update(data.config or {})
+    validate_provider_config(existing.provider_type, new_config)
+    existing.config = new_config
+    existing.name = data.name
+    existing.is_active = data.is_active
+
+    if data.sso_login_enabled is not None:
+        if data.sso_login_enabled is True and not existing.sso_login_enabled:
+            if not await sso_service.validate_sso_enablement(db, tid):
+                raise HTTPException(
+                    status_code=400,
+                    detail="IP address does not support multi-tenant SSO. Another tenant already has SSO enabled.",
+                )
+        existing.sso_login_enabled = data.sso_login_enabled
+
+    await db.commit()
+    await db.refresh(existing)
+
+    if tid:
+        await _sync_tenant_sso_state(db, tid)
+
+    return existing
+
+
 @router.post("/identity-providers", response_model=IdentityProviderOut)
 async def create_identity_provider(
     data: IdentityProviderCreate,
     current_user: User = Depends(get_current_admin),
     db: AsyncSession = Depends(get_db),
 ):
-    """Create a new identity provider (Admin only)."""
-    # Validate config
+    """Create a new identity provider (Admin only).
+
+    For feishu / dingtalk / wecom, if a row already exists for the tenant, updates it in place
+    instead of inserting a duplicate (matches UI expectation of one config per channel per tenant).
+    """
+    # Validate config shape (full merge happens on upsert path)
     validate_provider_config(data.provider_type, data.config)
-    
+
     # Validate and determine tenant_id
     tid = data.tenant_id
     if current_user.role == "platform_admin":
@@ -904,12 +956,23 @@ async def create_identity_provider(
 
     if not tid:
         raise HTTPException(status_code=400, detail="tenant_id is required to create an identity provider")
-        
+
+    merged = await _upsert_single_slot_identity_provider(db, tid=tid, data=data)
+    if merged:
+        from app.models.tenant import Tenant
+
+        out = IdentityProviderOut.model_validate(merged)
+        tenant_result = await db.execute(select(Tenant).where(Tenant.id == tid))
+        t = tenant_result.scalar_one_or_none()
+        if t:
+            out.sso_domain = t.sso_domain
+        return out
+
     if data.sso_login_enabled:
         if not await sso_service.validate_sso_enablement(db, tid):
-             raise HTTPException(
+            raise HTTPException(
                 status_code=400,
-                detail="IP address does not support multi-tenant SSO. Another tenant already has SSO enabled."
+                detail="IP address does not support multi-tenant SSO. Another tenant already has SSO enabled.",
             )
 
     provider = IdentityProvider(
@@ -918,7 +981,7 @@ async def create_identity_provider(
         is_active=data.is_active,
         sso_login_enabled=data.sso_login_enabled,
         config=data.config,
-        tenant_id=tid
+        tenant_id=tid,
     )
     db.add(provider)
     await db.commit()
