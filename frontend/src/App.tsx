@@ -17,6 +17,7 @@ import Messages from './pages/Messages';
 import EnterpriseSettings from './pages/EnterpriseSettings';
 import InvitationCodes from './pages/InvitationCodes';
 import AdminCompanies from './pages/AdminCompanies';
+import OAuthFrontendCallbackBridge from './pages/OAuthFrontendCallbackBridge';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
     const token = useAuthStore((s) => s.token);
@@ -175,6 +176,7 @@ export default function App() {
         <>
             <NotificationBar />
             <Routes>
+                <Route path="/login/callback/:provider" element={<OAuthFrontendCallbackBridge />} />
                 <Route path="/login" element={<Login />} />
                 <Route path="/forgot-password" element={<ForgotPassword />} />
                 <Route path="/reset-password" element={<ResetPassword />} />
