@@ -130,17 +130,10 @@ function SsoChannelSection({ idpType, existingProvider, tenant, t }: {
     idpType: string; existingProvider: any; tenant: any; t: any;
 }) {
     const qc = useQueryClient();
-    const [liveDomain, setLiveDomain] = useState<string>(existingProvider?.sso_domain || tenant?.sso_domain || '');
     const [ssoError, setSsoError] = useState<string>('');
     const [toggling, setToggling] = useState(false);
 
-    useEffect(() => {
-        setLiveDomain(existingProvider?.sso_domain || tenant?.sso_domain || '');
-    }, [existingProvider?.sso_domain, tenant?.sso_domain]);
-
     const ssoEnabled = existingProvider ? !!existingProvider.sso_login_enabled : false;
-    const domain = liveDomain;
-    const callbackUrl = domain ? (domain.startsWith('http') ? `${domain}/api/auth/${idpType}/callback` : `https://${domain}/api/auth/${idpType}/callback`) : '';
 
     const handleSsoToggle = async () => {
         if (!existingProvider) {
@@ -151,11 +144,10 @@ function SsoChannelSection({ idpType, existingProvider, tenant, t }: {
         setToggling(true);
         setSsoError('');
         try {
-            const result = await fetchJson<any>(`/enterprise/identity-providers/${existingProvider.id}`, {
+            await fetchJson<any>(`/enterprise/identity-providers/${existingProvider.id}`, {
                 method: 'PUT',
                 body: JSON.stringify({ sso_login_enabled: newVal }),
             });
-            if (result?.sso_domain) setLiveDomain(result.sso_domain);
             qc.invalidateQueries({ queryKey: ['identity-providers'] });
             if (tenant?.id) qc.invalidateQueries({ queryKey: ['tenant', tenant.id] });
         } catch (e: any) {
@@ -208,74 +200,9 @@ function SsoChannelSection({ idpType, existingProvider, tenant, t }: {
                     {ssoError}
                 </div>
             )}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                <div>
-                    <label className="form-label" style={{ fontSize: '11px', marginBottom: '4px', color: 'var(--text-secondary)' }}>
-                        {t('enterprise.identity.ssoSubdomain', 'SSO Login URL')}
-                    </label>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <div style={{
-                            flex: 1, maxWidth: '400px',
-                            padding: '8px 12px',
-                            background: 'var(--bg-elevated)',
-                            border: '1px solid var(--border-subtle)',
-                            borderRadius: '6px',
-                            fontSize: '12px',
-                            color: domain ? 'var(--text-primary)' : 'var(--text-tertiary)',
-                            fontFamily: 'monospace',
-                            whiteSpace: 'nowrap',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis'
-                        }}>
-                            {domain ? (domain.startsWith('http') ? domain : `https://${domain}`) : t('enterprise.identity.ssoUrlEmpty', '请先开启 SSO 以生成地址')}
-                        </div>
-                        <LinearCopyButton
-                            className="btn btn-ghost btn-sm"
-                            style={{ fontSize: '11px', width: 'auto', minWidth: '70px', height: '33px' }}
-                            disabled={!domain}
-                            textToCopy={domain ? (domain.startsWith('http') ? domain : `https://${domain}`) : ''}
-                            label={t('common.copy', 'Copy')}
-                            copiedLabel="Copied"
-                        />
-                    </div>
-                    <div style={{ fontSize: '10px', color: 'var(--text-tertiary)', marginTop: '4px' }}>
-                        {t('enterprise.identity.ssoSubdomainHint', 'Share this URL with your team. SSO login buttons will appear when they visit this address.')}
-                    </div>
-                </div>
-                <div>
-                    <label className="form-label" style={{ fontSize: '11px', marginBottom: '4px', color: 'var(--text-secondary)' }}>
-                        {t('enterprise.identity.callbackUrl', 'Redirect URL (paste this in your app settings)')}
-                    </label>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <div style={{
-                            flex: 1, maxWidth: '400px',
-                            padding: '8px 12px',
-                            background: 'var(--bg-elevated)',
-                            border: '1px solid var(--border-subtle)',
-                            borderRadius: '6px',
-                            fontSize: '12px',
-                            color: callbackUrl ? 'var(--text-primary)' : 'var(--text-tertiary)',
-                            fontFamily: 'monospace',
-                            whiteSpace: 'nowrap',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis'
-                        }}>
-                            {callbackUrl || t('enterprise.identity.ssoUrlEmpty', '请先开启 SSO 以生成地址')}
-                        </div>
-                        <LinearCopyButton
-                            className="btn btn-ghost btn-sm"
-                            style={{ fontSize: '11px', width: 'auto', minWidth: '70px', height: '33px' }}
-                            disabled={!callbackUrl}
-                            textToCopy={callbackUrl}
-                            label={t('common.copy', 'Copy')}
-                            copiedLabel="Copied"
-                        />
-                    </div>
-                    <div style={{ fontSize: '10px', color: 'var(--text-tertiary)', marginTop: '4px' }}>
-                        {t('enterprise.identity.callbackUrlHint', "Add this URL as the OAuth redirect URI in your identity provider's app configuration.")}
-                    </div>
-                </div>
-            </div>
+            <p style={{ fontSize: '11px', color: 'var(--text-tertiary)', lineHeight: 1.55, margin: 0 }}>
+                {t('enterprise.identity.oauthScanEnableHint', 'Fill in and save the OAuth callback URL in the form above, then turn this on. The URL must match what you register with the vendor.')}
+            </p>
         </div>
     );
 }
@@ -419,7 +346,8 @@ function OrgTab({ tenant }: { tenant: any }) {
         authorize_url: '',
         token_url: '',
         user_info_url: '',
-        scope: 'openid profile email'
+        scope: 'openid profile email',
+        oauth_redirect_uri: '',
     });
 
     const currentTenantId = localStorage.getItem('current_tenant_id') || '';
@@ -522,7 +450,8 @@ function OrgTab({ tenant }: { tenant: any }) {
         authorize_url: config?.authorize_url || '',
         token_url: config?.token_url || '',
         user_info_url: config?.user_info_url || '',
-        scope: config?.scope || 'openid profile email'
+        scope: config?.scope || 'openid profile email',
+        oauth_redirect_uri: (config?.oauth_redirect_uri || config?.redirect_uri || '') as string,
     });
 
     const save = () => {
@@ -555,9 +484,9 @@ function OrgTab({ tenant }: { tenant: any }) {
             setForm({ ...existingProvider, ...(type === 'oauth2' ? initOAuth2FromConfig(existingProvider.config) : {}) });
         } else {
             const defaults: any = {
-                feishu: { app_id: '', app_secret: '', corp_id: '' },
-                dingtalk: { app_key: '', app_secret: '', corp_id: '' },
-                wecom: { corp_id: '', secret: '', agent_id: '', app_secret: '', bot_id: '', bot_secret: '', verify_token: '', verify_aes_key: '' },
+                feishu: { app_id: '', app_secret: '', corp_id: '', oauth_redirect_uri: '' },
+                dingtalk: { app_key: '', app_secret: '', corp_id: '', oauth_redirect_uri: '' },
+                wecom: { corp_id: '', secret: '', agent_id: '', app_secret: '', bot_id: '', bot_secret: '', verify_token: '', verify_aes_key: '', oauth_redirect_uri: '' },
             };
             const nameMap: Record<string, string> = { feishu: 'Feishu', wecom: 'WeCom', dingtalk: 'DingTalk', oauth2: 'OAuth2' };
             setForm({
@@ -565,7 +494,8 @@ function OrgTab({ tenant }: { tenant: any }) {
                 name: nameMap[type] || type,
                 config: defaults[type] || {},
                 app_id: '', app_secret: '', authorize_url: '', token_url: '', user_info_url: '',
-                scope: 'openid profile email'
+                scope: 'openid profile email',
+                oauth_redirect_uri: '',
             });
         }
         setSelectedDept(null);
@@ -650,8 +580,33 @@ function OrgTab({ tenant }: { tenant: any }) {
                             <input className="form-input" type="password" value={form.app_secret} onChange={e => setForm({ ...form, app_secret: e.target.value })} />
                         </div>
                         <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-                            <label className="form-label">Authorize URL</label>
+                            <label className="form-label">{t('enterprise.identity.oauthRedirectUri')}</label>
+                            <input
+                                className="form-input"
+                                value={form.oauth_redirect_uri || ''}
+                                onChange={e => setForm({ ...form, oauth_redirect_uri: e.target.value })}
+                                placeholder={t('enterprise.identity.oauthRedirectUriPlaceholder')}
+                                autoComplete="off"
+                            />
+                            <div style={{ fontSize: '10px', color: 'var(--text-tertiary)', marginTop: '4px' }}>
+                                {t('enterprise.identity.oauthRedirectUriHint')}
+                            </div>
+                        </div>
+                        <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                            <label className="form-label">{t('enterprise.identity.authorizeUrl')}</label>
                             <input className="form-input" value={form.authorize_url} onChange={e => setForm({ ...form, authorize_url: e.target.value })} />
+                        </div>
+                        <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                            <label className="form-label">{t('enterprise.identity.tokenUrl')}</label>
+                            <input className="form-input" value={form.token_url} onChange={e => setForm({ ...form, token_url: e.target.value })} />
+                        </div>
+                        <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                            <label className="form-label">{t('enterprise.identity.userInfoUrl')}</label>
+                            <input className="form-input" value={form.user_info_url} onChange={e => setForm({ ...form, user_info_url: e.target.value })} />
+                        </div>
+                        <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                            <label className="form-label">Scope</label>
+                            <input className="form-input" value={form.scope} onChange={e => setForm({ ...form, scope: e.target.value })} />
                         </div>
                     </div>
                 ) : type === 'wecom' ? (
@@ -694,6 +649,19 @@ function OrgTab({ tenant }: { tenant: any }) {
                                     {t('enterprise.identity.wecomAgentIdHint', 'Self-built app AgentId — required for scan-to-login (qrConnect).')}
                                 </div>
                             </div>
+                            <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                                <label className="form-label">{t('enterprise.identity.oauthRedirectUri')}</label>
+                                <input
+                                    className="form-input"
+                                    value={form.config.oauth_redirect_uri || ''}
+                                    onChange={e => setForm({ ...form, config: { ...form.config, oauth_redirect_uri: e.target.value } })}
+                                    placeholder={t('enterprise.identity.oauthRedirectUriPlaceholder')}
+                                    autoComplete="off"
+                                />
+                                <div style={{ fontSize: '10px', color: 'var(--text-tertiary)', marginTop: '4px' }}>
+                                    {t('enterprise.identity.oauthRedirectUriHint')}
+                                </div>
+                            </div>
                         </div>
                         <details style={{ fontSize: '12px', color: 'var(--text-secondary)', lineHeight: 1.65 }}>
                             <summary style={{ cursor: 'pointer', fontWeight: 500, color: 'var(--text-primary)' }}>
@@ -734,6 +702,19 @@ function OrgTab({ tenant }: { tenant: any }) {
                             <label className="form-label">App Secret</label>
                             <input className="form-input" type="password" value={form.config.app_secret || ''} onChange={e => setForm({ ...form, config: { ...form.config, app_secret: e.target.value } })} />
                         </div>
+                        <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                            <label className="form-label">{t('enterprise.identity.oauthRedirectUri')}</label>
+                            <input
+                                className="form-input"
+                                value={form.config.oauth_redirect_uri || ''}
+                                onChange={e => setForm({ ...form, config: { ...form.config, oauth_redirect_uri: e.target.value } })}
+                                placeholder={t('enterprise.identity.oauthRedirectUriPlaceholder')}
+                                autoComplete="off"
+                            />
+                            <div style={{ fontSize: '10px', color: 'var(--text-tertiary)', marginTop: '4px' }}>
+                                {t('enterprise.identity.oauthRedirectUriHint')}
+                            </div>
+                        </div>
                     </div>
                 ) : type === 'feishu' ? (
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
@@ -747,6 +728,19 @@ function OrgTab({ tenant }: { tenant: any }) {
                         <div className="form-group">
                             <label className="form-label">App Secret</label>
                             <input className="form-input" type="password" value={form.config.app_secret || ''} onChange={e => setForm({ ...form, config: { ...form.config, app_secret: e.target.value } })} />
+                        </div>
+                        <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                            <label className="form-label">{t('enterprise.identity.oauthRedirectUri')}</label>
+                            <input
+                                className="form-input"
+                                value={form.config.oauth_redirect_uri || ''}
+                                onChange={e => setForm({ ...form, config: { ...form.config, oauth_redirect_uri: e.target.value } })}
+                                placeholder={t('enterprise.identity.oauthRedirectUriPlaceholder')}
+                                autoComplete="off"
+                            />
+                            <div style={{ fontSize: '10px', color: 'var(--text-tertiary)', marginTop: '4px' }}>
+                                {t('enterprise.identity.oauthRedirectUriHint')}
+                            </div>
                         </div>
                     </div>
                 ) : null}

@@ -793,6 +793,7 @@ class OAuth2Config(BaseModel):
     token_url: str | None = None        # OAuth2 token endpoint
     user_info_url: str | None = None    # OAuth2 user info endpoint
     scope: str | None = "openid profile email"
+    oauth_redirect_uri: str | None = None  # Must match IdP app settings; empty => platform default
 
     def to_config_dict(self) -> dict:
         """Convert to config dict with both naming conventions for compatibility."""
@@ -811,6 +812,8 @@ class OAuth2Config(BaseModel):
             config["user_info_url"] = self.user_info_url
         if self.scope:
             config["scope"] = self.scope
+        if self.oauth_redirect_uri and self.oauth_redirect_uri.strip():
+            config["oauth_redirect_uri"] = self.oauth_redirect_uri.strip()
         return config
 
     @classmethod
@@ -823,6 +826,7 @@ class OAuth2Config(BaseModel):
             token_url=config.get("token_url"),
             user_info_url=config.get("user_info_url"),
             scope=config.get("scope"),
+            oauth_redirect_uri=config.get("oauth_redirect_uri") or config.get("redirect_uri"),
         )
 
 
@@ -837,6 +841,7 @@ class IdentityProviderOAuth2Create(BaseModel):
     token_url: str
     user_info_url: str
     scope: str | None = "openid profile email"
+    oauth_redirect_uri: str | None = None
     tenant_id: uuid.UUID | None = None
 
 
@@ -860,7 +865,7 @@ def normalize_oauth2_config(config: dict) -> dict:
             normalized["client_secret"] = config["client_secret"]
 
         # Copy URLs if present
-        for key in ["authorize_url", "token_url", "user_info_url", "scope"]:
+        for key in ["authorize_url", "token_url", "user_info_url", "scope", "oauth_redirect_uri", "redirect_uri"]:
             if key in config:
                 normalized[key] = config[key]
 
@@ -936,6 +941,7 @@ async def create_oauth2_provider(
         token_url=data.token_url,
         user_info_url=data.user_info_url,
         scope=data.scope,
+        oauth_redirect_uri=data.oauth_redirect_uri,
     )
     config = oauth_config.to_config_dict()
 
@@ -981,6 +987,7 @@ class OAuth2ConfigUpdate(BaseModel):
     token_url: str | None = None
     user_info_url: str | None = None
     scope: str | None = None
+    oauth_redirect_uri: str | None = None
 
 
 @router.patch("/identity-providers/{provider_id}/oauth2", response_model=IdentityProviderOut)
@@ -1009,7 +1016,17 @@ async def update_oauth2_provider(
         provider.is_active = data.is_active
 
     # Update config fields
-    if any([data.app_id, data.app_secret is not None, data.authorize_url, data.token_url, data.user_info_url, data.scope]):
+    if any(
+        [
+            data.app_id,
+            data.app_secret is not None,
+            data.authorize_url,
+            data.token_url,
+            data.user_info_url,
+            data.scope,
+            data.oauth_redirect_uri is not None,
+        ]
+    ):
         current_config = provider.config.copy()
 
         if data.app_id is not None:
@@ -1031,6 +1048,13 @@ async def update_oauth2_provider(
             current_config["user_info_url"] = data.user_info_url
         if data.scope is not None:
             current_config["scope"] = data.scope
+        if data.oauth_redirect_uri is not None:
+            uri = (data.oauth_redirect_uri or "").strip()
+            if uri:
+                current_config["oauth_redirect_uri"] = uri
+            else:
+                current_config.pop("oauth_redirect_uri", None)
+                current_config.pop("redirect_uri", None)
 
         # Validate the updated config
         validate_provider_config("oauth2", current_config)

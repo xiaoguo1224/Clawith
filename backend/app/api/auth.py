@@ -876,11 +876,10 @@ async def oauth2_web_callback(
     db: AsyncSession = Depends(get_db),
 ):
     """Browser redirect callback for generic OAuth2 IdP (authorization code, state = tenant id)."""
-    from app.models.tenant import Tenant
     from app.services.auth_registry import auth_provider_registry
     from app.services.oauth_login_redirect import oauth_web_login_success_response
+    from app.services.oauth_redirect_uri import resolve_oauth_redirect_uri_for_tenant
     from app.services.oauth_state import resolve_oauth_tenant_id
-    from app.services.platform_service import platform_service
 
     tenant_uuid = await resolve_oauth_tenant_id(db, state)
     tid = str(tenant_uuid) if tenant_uuid else None
@@ -888,13 +887,7 @@ async def oauth2_web_callback(
     if not auth_provider:
         return HTMLResponse("Auth failed: OAuth2 identity provider not configured for this tenant", status_code=400)
 
-    if tenant_uuid:
-        tenant_result = await db.execute(select(Tenant).where(Tenant.id == tenant_uuid))
-        tenant_obj = tenant_result.scalar_one_or_none()
-        public_base = await platform_service.get_tenant_sso_base_url(db, tenant_obj, request)
-    else:
-        public_base = await platform_service.get_public_base_url(db, request)
-    redir = f"{public_base}/api/auth/oauth2/callback"
+    redir = await resolve_oauth_redirect_uri_for_tenant(db, auth_provider.config, tenant_uuid, "oauth2")
 
     try:
         token_data = await auth_provider.exchange_code_for_token(code, redirect_uri=redir)

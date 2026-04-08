@@ -68,11 +68,12 @@ class BaseAuthProvider(ABC):
         pass
 
     @abstractmethod
-    async def exchange_code_for_token(self, code: str) -> dict:
+    async def exchange_code_for_token(self, code: str, *, redirect_uri: str | None = None) -> dict:
         """Exchange authorization code for access token.
 
         Args:
             code: Authorization code from OAuth callback
+            redirect_uri: Callback URL used in the authorize step (required by some providers)
 
         Returns:
             Dict containing access_token and optionally refresh_token
@@ -306,7 +307,7 @@ class FeishuAuthProvider(BaseAuthProvider):
             self._app_access_token = data.get("app_access_token", "")
             return self._app_access_token
 
-    async def exchange_code_for_token(self, code: str) -> dict:
+    async def exchange_code_for_token(self, code: str, *, redirect_uri: str | None = None) -> dict:
         app_token = await self.get_app_access_token()
 
         async with httpx.AsyncClient() as client:
@@ -381,7 +382,7 @@ class DingTalkAuthProvider(BaseAuthProvider):
             params = f"corpId={self.corp_id}&" + params
         return f"{base_url}?{params}"
 
-    async def exchange_code_for_token(self, code: str) -> dict:
+    async def exchange_code_for_token(self, code: str, *, redirect_uri: str | None = None) -> dict:
         async with httpx.AsyncClient() as client:
             resp = await client.post(
                 self.DINGTALK_TOKEN_URL,
@@ -486,7 +487,7 @@ class WeComAuthProvider(BaseAuthProvider):
         )
         return f"{base_url}?{params}"
 
-    async def exchange_code_for_token(self, code: str) -> dict:
+    async def exchange_code_for_token(self, code: str, *, redirect_uri: str | None = None) -> dict:
         """Exchange OAuth code for a packed token string containing all user data.
 
         Three sequential API calls:
@@ -637,6 +638,89 @@ class WeComAuthProvider(BaseAuthProvider):
             )
 
 
+class OAuth2GenericAuthProvider(BaseAuthProvider):
+    """Tenant-configured OAuth2 / OIDC (authorization code + userinfo)."""
+
+    provider_type = "oauth2"
+
+    async def get_authorization_url(self, redirect_uri: str, state: str) -> str:
+        from urllib.parse import urlencode
+
+        base = (self.config.get("authorize_url") or "").strip()
+        if not base:
+            raise ValueError("authorize_url is not configured")
+        client_id = self.config.get("app_id") or self.config.get("client_id") or ""
+        scope = self.config.get("scope") or "openid profile email"
+        params = {
+            "client_id": client_id,
+            "redirect_uri": redirect_uri,
+            "response_type": "code",
+            "state": state,
+            "scope": scope,
+        }
+        sep = "&" if "?" in base else "?"
+        return f"{base}{sep}{urlencode(params)}"
+
+    async def exchange_code_for_token(self, code: str, *, redirect_uri: str | None = None) -> dict:
+        token_url = (self.config.get("token_url") or "").strip()
+        if not token_url:
+            return {}
+        client_id = self.config.get("app_id") or self.config.get("client_id")
+        client_secret = self.config.get("app_secret") or self.config.get("client_secret")
+        form: dict[str, str] = {
+            "grant_type": "authorization_code",
+            "code": code,
+            "client_id": client_id or "",
+            "client_secret": client_secret or "",
+        }
+        if redirect_uri:
+            form["redirect_uri"] = redirect_uri
+        async with httpx.AsyncClient(timeout=30) as client:
+            resp = await client.post(
+                token_url,
+                data=form,
+                headers={"Accept": "application/json"},
+            )
+        try:
+            data = resp.json()
+        except Exception:
+            logger.error("OAuth2 token response not JSON: %s", resp.text[:500])
+            return {}
+        if resp.status_code >= 400:
+            logger.error("OAuth2 token exchange failed: %s %s", resp.status_code, data)
+            return {}
+        return data if isinstance(data, dict) else {}
+
+    async def get_user_info(self, access_token: str) -> ExternalUserInfo:
+        user_info_url = (self.config.get("user_info_url") or "").strip()
+        if not user_info_url:
+            return ExternalUserInfo(provider_type=self.provider_type, provider_user_id="", raw_data={})
+        async with httpx.AsyncClient(timeout=30) as client:
+            resp = await client.get(
+                user_info_url,
+                headers={"Authorization": f"Bearer {access_token}"},
+            )
+        try:
+            info = resp.json()
+        except Exception:
+            logger.error("OAuth2 userinfo not JSON: %s", resp.text[:500])
+            return ExternalUserInfo(provider_type=self.provider_type, provider_user_id="", raw_data={})
+        if resp.status_code >= 400:
+            logger.error("OAuth2 userinfo failed: %s %s", resp.status_code, info)
+            return ExternalUserInfo(provider_type=self.provider_type, provider_user_id="", raw_data=info if isinstance(info, dict) else {})
+        if not isinstance(info, dict):
+            return ExternalUserInfo(provider_type=self.provider_type, provider_user_id="", raw_data={})
+        sub = str(info.get("sub") or info.get("user_id") or info.get("id") or "")
+        return ExternalUserInfo(
+            provider_type=self.provider_type,
+            provider_user_id=sub,
+            name=str(info.get("name") or info.get("preferred_username") or ""),
+            email=str(info.get("email") or ""),
+            avatar_url=str(info.get("picture") or info.get("avatar_url") or ""),
+            raw_data=info,
+        )
+
+
 class MicrosoftTeamsAuthProvider(BaseAuthProvider):
     """Microsoft Teams OAuth provider implementation."""
 
@@ -646,7 +730,7 @@ class MicrosoftTeamsAuthProvider(BaseAuthProvider):
     async def get_authorization_url(self, redirect_uri: str, state: str) -> str:
         raise NotImplementedError("Microsoft Teams OAuth not yet implemented")
 
-    async def exchange_code_for_token(self, code: str) -> dict:
+    async def exchange_code_for_token(self, code: str, *, redirect_uri: str | None = None) -> dict:
         raise NotImplementedError("Microsoft Teams OAuth not yet implemented")
 
     async def get_user_info(self, access_token: str) -> ExternalUserInfo:
@@ -658,5 +742,6 @@ PROVIDER_CLASSES = {
     "feishu": FeishuAuthProvider,
     "dingtalk": DingTalkAuthProvider,
     "wecom": WeComAuthProvider,
+    "oauth2": OAuth2GenericAuthProvider,
     "microsoft_teams": MicrosoftTeamsAuthProvider,
 }

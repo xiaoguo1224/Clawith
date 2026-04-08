@@ -10,6 +10,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.identity import IdentityProvider
 
+from app.services.oauth_redirect_uri import resolve_oauth_redirect_uri
+
 
 async def build_oauth_login_urls_for_tenant(
     db: AsyncSession,
@@ -35,10 +37,11 @@ async def build_oauth_login_urls_for_tenant(
     tid = str(tenant_id) if tenant_id else None
 
     for p in providers:
+        cfg = p.config or {}
         if p.provider_type == "feishu":
-            app_id = (p.config or {}).get("app_id")
+            app_id = cfg.get("app_id")
             if app_id:
-                redir = f"{public_base}/api/auth/feishu/callback"
+                redir = resolve_oauth_redirect_uri(cfg, public_base, "feishu")
                 url = f"https://open.feishu.cn/open-apis/authen/v1/index?app_id={app_id}&redirect_uri={quote(redir)}&state={state}"
                 auth_urls.append({"provider_type": "feishu", "name": p.name, "url": url})
 
@@ -47,28 +50,26 @@ async def build_oauth_login_urls_for_tenant(
 
             auth_provider = await auth_provider_registry.get_provider(db, "dingtalk", tid)
             if auth_provider:
-                redir = f"{public_base}/api/auth/dingtalk/callback"
+                redir = resolve_oauth_redirect_uri(auth_provider.config, public_base, "dingtalk")
                 url = await auth_provider.get_authorization_url(redir, state)
                 auth_urls.append({"provider_type": "dingtalk", "name": p.name, "url": url})
 
         elif p.provider_type == "wecom":
-            cfg = p.config or {}
             corp_id = cfg.get("corp_id")
             agent_id = cfg.get("agent_id")
             if corp_id and agent_id:
-                redir = f"{public_base}/api/auth/wecom/callback"
+                redir = resolve_oauth_redirect_uri(cfg, public_base, "wecom")
                 url = f"https://open.work.weixin.qq.com/wwopen/sso/qrConnect?appid={corp_id}&agentid={agent_id}&redirect_uri={quote(redir)}&state={state}"
                 auth_urls.append({"provider_type": "wecom", "name": p.name, "url": url})
 
         elif p.provider_type == "oauth2":
-            cfg = p.config or {}
             cid = cfg.get("app_id") or cfg.get("client_id")
             if cfg.get("authorize_url") and cfg.get("token_url") and cfg.get("user_info_url") and cid:
                 from app.services.auth_registry import auth_provider_registry
 
                 auth_provider = await auth_provider_registry.get_provider(db, "oauth2", tid)
                 if auth_provider:
-                    redir = f"{public_base}/api/auth/oauth2/callback"
+                    redir = resolve_oauth_redirect_uri(auth_provider.config, public_base, "oauth2")
                     url = await auth_provider.get_authorization_url(redir, state)
                     auth_urls.append({"provider_type": "oauth2", "name": p.name, "url": url})
 
