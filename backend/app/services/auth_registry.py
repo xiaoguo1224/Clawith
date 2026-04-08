@@ -9,6 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.identity import IdentityProvider
+from app.services.identity_provider_pick import pick_preferred_identity_provider
 from app.services.auth_provider import (
     PROVIDER_CLASSES,
     BaseAuthProvider,
@@ -55,7 +56,7 @@ class AuthProviderRegistry:
         )
 
         result = await db.execute(query)
-        provider_model = result.scalar_one_or_none()
+        provider_model = pick_preferred_identity_provider(list(result.scalars().all()))
 
         # Create provider instance
         provider = self._create_provider(provider_type, provider_model)

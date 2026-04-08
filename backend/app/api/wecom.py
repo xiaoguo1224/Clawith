@@ -25,6 +25,7 @@ from app.models.channel_config import ChannelConfig
 from app.models.user import User
 from app.models.identity import IdentityProvider
 from app.schemas.schemas import ChannelConfigOut, TokenResponse, UserOut
+from app.services.identity_provider_pick import pick_preferred_identity_provider
 
 router = APIRouter(tags=["wecom"])
 
@@ -675,7 +676,8 @@ async def wecom_callback(
         provider_query = provider_query.where(IdentityProvider.tenant_id.is_(None))
 
     provider_result = await db.execute(provider_query)
-    provider = provider_result.scalar_one_or_none()
+    rows = list(provider_result.scalars().all())
+    provider = pick_preferred_identity_provider(rows)
     if not provider:
         return HTMLResponse("Auth failed: WeCom provider not configured for this tenant", status_code=400)
 
