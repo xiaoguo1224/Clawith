@@ -7,6 +7,7 @@ import uuid
 from typing import Any
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request, status
+from fastapi.responses import HTMLResponse
 from loguru import logger
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -865,6 +866,63 @@ async def list_providers(
 
     providers = await auth_provider_registry.list_providers(db, str(tenant_id) if tenant_id else None)
     return [{"id": str(p.id), "provider_type": p.provider_type, "name": p.name, "is_active": p.is_active} for p in providers]
+
+
+@router.get("/oauth2/callback")
+async def oauth2_web_callback(
+    request: Request,
+    code: str,
+    state: str | None = None,
+    db: AsyncSession = Depends(get_db),
+):
+    """Browser redirect callback for generic OAuth2 IdP (authorization code, state = tenant id)."""
+    from app.models.tenant import Tenant
+    from app.services.auth_registry import auth_provider_registry
+    from app.services.oauth_login_redirect import oauth_web_login_success_response
+    from app.services.oauth_state import resolve_oauth_tenant_id
+    from app.services.platform_service import platform_service
+
+    tenant_uuid = await resolve_oauth_tenant_id(db, state)
+    tid = str(tenant_uuid) if tenant_uuid else None
+    auth_provider = await auth_provider_registry.get_provider(db, "oauth2", tid)
+    if not auth_provider:
+        return HTMLResponse("Auth failed: OAuth2 identity provider not configured for this tenant", status_code=400)
+
+    if tenant_uuid:
+        tenant_result = await db.execute(select(Tenant).where(Tenant.id == tenant_uuid))
+        tenant_obj = tenant_result.scalar_one_or_none()
+        public_base = await platform_service.get_tenant_sso_base_url(db, tenant_obj, request)
+    else:
+        public_base = await platform_service.get_public_base_url(db, request)
+    redir = f"{public_base}/api/auth/oauth2/callback"
+
+    try:
+        token_data = await auth_provider.exchange_code_for_token(code, redirect_uri=redir)
+        access_token = token_data.get("access_token")
+        if not access_token:
+            return HTMLResponse("Auth failed: No access token from provider", status_code=400)
+        user_info = await auth_provider.get_user_info(access_token)
+        if not user_info.provider_user_id:
+            return HTMLResponse("Auth failed: User id (sub) missing from userinfo", status_code=400)
+        user, _is_new = await auth_provider.find_or_create_user(db, user_info, tenant_id=tid)
+        if not user:
+            return HTMLResponse("Auth failed: Could not create or resolve user", status_code=400)
+        if not user.is_active:
+            return HTMLResponse("Auth failed: Account is disabled", status_code=403)
+    except Exception as e:
+        logger.exception("OAuth2 web callback error: %s", e)
+        return HTMLResponse(f"Auth failed: {e}", status_code=400)
+
+    jwt_token = create_access_token(str(user.id), user.role)
+
+    if tenant_uuid is not None and state:
+        return oauth_web_login_success_response(jwt_token)
+
+    return TokenResponse(
+        access_token=jwt_token,
+        user=UserOut.model_validate(user),
+        needs_company_setup=user.tenant_id is None,
+    )
 
 
 @router.get("/{provider}/authorize", response_model=OAuthAuthorizeResponse)

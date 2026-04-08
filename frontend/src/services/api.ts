@@ -198,6 +198,11 @@ export const tenantApi = {
 
     resolveByDomain: (domain: string) =>
         request<any>(`/tenants/resolve-by-domain?domain=${encodeURIComponent(domain)}`),
+
+    publicOauthDirectory: (q?: string) =>
+        request<Array<{ id: string; name: string; slug: string }>>(
+            `/tenants/public-oauth-directory${q ? `?q=${encodeURIComponent(q)}` : ''}`,
+        ),
 };
 
 export const adminApi = {

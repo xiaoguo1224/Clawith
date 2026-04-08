@@ -79,18 +79,10 @@ async def feishu_oauth_callback(
     db: AsyncSession = Depends(get_db)
 ):
     """Handle Feishu OAuth callback — exchange code for user session."""
-    # Parse state if it's a UUID (session ID) or other context
-    from app.models.identity import SSOScanSession
-    tenant_id = None
-    if state:
-        try:
-            sid = uuid.UUID(state)
-            s_res = await db.execute(select(SSOScanSession).where(SSOScanSession.id == sid))
-            session = s_res.scalar_one_or_none()
-            if session:
-                tenant_id = session.tenant_id
-        except (ValueError, AttributeError):
-            pass
+    from app.services.oauth_login_redirect import oauth_web_login_success_response
+    from app.services.oauth_state import resolve_oauth_tenant_id
+
+    tenant_id = await resolve_oauth_tenant_id(db, state)
 
     try:
         # Use FeishuAuthProvider instead of legacy feishu_service
@@ -127,8 +119,8 @@ async def feishu_oauth_callback(
         access_token = token_data.get("access_token", "")
         user_info = await auth_provider.get_user_info(access_token)
 
-        # Find or create user
-        user, is_new = await auth_provider.find_or_create_user(db, user_info, tenant_id=tenant_id)
+        tid = str(tenant_id) if tenant_id else None
+        user, is_new = await auth_provider.find_or_create_user(db, user_info, tenant_id=tid)
 
         # Generate JWT token
         from app.core.security import create_access_token
@@ -137,28 +129,8 @@ async def feishu_oauth_callback(
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Feishu auth failed: {e}")
 
-    # If this is an SSO session, store result and redirect to frontend completion
-    if state:
-        try:
-            sid = uuid.UUID(state)
-            s_res = await db.execute(select(SSOScanSession).where(SSOScanSession.id == sid))
-            session = s_res.scalar_one_or_none()
-            if session:
-                session.status = "authorized"
-                session.provider_type = "feishu"
-                session.user_id = user.id
-                session.access_token = token
-                session.error_msg = None
-                await db.commit()
-                return HTMLResponse(
-                    f"""<html><head><meta charset="utf-8" /></head>
-                    <body style="font-family: sans-serif; padding: 24px;">
-                        <div>SSO login successful. Redirecting...</div>
-                        <script>window.location.href = "/sso/entry?sid={sid}&complete=1";</script>
-                    </body></html>"""
-                )
-        except Exception as e:
-            logger.exception("Failed to update SSO session (feishu) %s", e)
+    if tenant_id is not None and state:
+        return oauth_web_login_success_response(token)
 
     return TokenResponse(access_token=token, user=UserOut.model_validate(user))
 

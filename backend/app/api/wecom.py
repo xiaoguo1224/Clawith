@@ -13,16 +13,18 @@ import uuid
 import xml.etree.ElementTree as ET
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from fastapi.responses import HTMLResponse
 from loguru import logger
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.permissions import check_agent_access, is_agent_creator
-from app.core.security import get_current_user
+from app.core.security import create_access_token, get_current_user
 from app.database import get_db
 from app.models.channel_config import ChannelConfig
 from app.models.user import User
-from app.schemas.schemas import ChannelConfigOut
+from app.models.identity import IdentityProvider
+from app.schemas.schemas import ChannelConfigOut, TokenResponse, UserOut
 
 router = APIRouter(tags=["wecom"])
 
@@ -655,83 +657,50 @@ async def wecom_callback(
     state: str = None,
     db: AsyncSession = Depends(get_db),
 ):
-    # 1. Resolve session to get tenant context
-    from app.models.identity import SSOScanSession
-    tenant_id = None
-    if state:
-        try:
-            sid = uuid.UUID(state)
-            s_res = await db.execute(select(SSOScanSession).where(SSOScanSession.id == sid))
-            session = s_res.scalar_one_or_none()
-            if session:
-                tenant_id = session.tenant_id
-        except (ValueError, AttributeError):
-            pass
+    """WeCom web OAuth (qrConnect) — state must be tenant id for hosted login."""
+    from app.services.auth_provider import WeComAuthProvider
+    from app.services.oauth_login_redirect import oauth_web_login_success_response
+    from app.services.oauth_state import resolve_oauth_tenant_id
 
-    # 1. Get WeCom provider config
-    provider_query = select(IdentityProvider).where(IdentityProvider.provider_type == "wecom")
+    tenant_id = await resolve_oauth_tenant_id(db, state)
+
+    provider_query = select(IdentityProvider).where(
+        IdentityProvider.provider_type == "wecom",
+        IdentityProvider.is_active == True,
+        IdentityProvider.sso_login_enabled == True,
+    )
     if tenant_id:
-        # Strict scope
         provider_query = provider_query.where(IdentityProvider.tenant_id == tenant_id)
     else:
-        # Fallback to unscoped
         provider_query = provider_query.where(IdentityProvider.tenant_id.is_(None))
 
     provider_result = await db.execute(provider_query)
     provider = provider_result.scalar_one_or_none()
     if not provider:
-        raise HTTPException(status_code=404, detail="WeCom provider not configured for this tenant")
+        return HTMLResponse("Auth failed: WeCom provider not configured for this tenant", status_code=400)
 
-    config = provider.config
-    corp_id = config.get("app_id") or config.get("corp_id")
-    secret = config.get("app_secret") or config.get("secret")
+    cfg = provider.config or {}
+    auth_provider = WeComAuthProvider(provider=provider, config=cfg)
 
-    # 2. Extract user info and login/register via RegistrationService
     try:
-        from app.services.auth_provider import auth_provider_registry
-        auth_provider = auth_provider_registry.get_provider(provider)
-        
         token_data = await auth_provider.exchange_code_for_token(code)
         access_token_str = token_data.get("access_token")
         if not access_token_str:
-            return HTMLResponse("Auth failed: Token error")
-            
+            return HTMLResponse("Auth failed: Token error", status_code=400)
+
         user_info = await auth_provider.get_user_info(access_token_str)
         if not user_info.provider_user_id:
-            return HTMLResponse("Auth failed: No UserId returned")
-            
-        # Find or Create User (handles Identity and OrgMember linking)
-        user = await auth_provider.find_or_create_user(
-            db, user_info, tenant_id=tenant_id or provider.tenant_id
-        )
+            return HTMLResponse("Auth failed: No UserId returned", status_code=400)
+
+        tid = str(tenant_id) if tenant_id else None
+        user, _is_new = await auth_provider.find_or_create_user(db, user_info, tenant_id=tid)
     except Exception as e:
         logger.exception(f"WeCom login/register error: {e}")
-        return HTMLResponse(f"Auth failed: {str(e)}")
+        return HTMLResponse(f"Auth failed: {str(e)}", status_code=400)
 
+    jwt_token = create_access_token(str(user.id), user.role)
 
-    # Standard login
-    token = create_access_token(str(user.id), user.role)
+    if tenant_id is not None and state:
+        return oauth_web_login_success_response(jwt_token)
 
-    if state:
-        try:
-            sid = uuid.UUID(state)
-            s_res = await db.execute(select(SSOScanSession).where(SSOScanSession.id == sid))
-            session = s_res.scalar_one_or_none()
-            if session:
-                session.status = "authorized"
-                session.provider_type = "wecom"
-                session.user_id = user.id
-                session.access_token = token
-                session.error_msg = None
-                await db.commit()
-                return HTMLResponse(
-                    f"""<html><head><meta charset="utf-8" /></head>
-                    <body style="font-family: sans-serif; padding: 24px;">
-                        <div>SSO login successful. Redirecting...</div>
-                        <script>window.location.href = "/sso/entry?sid={sid}&complete=1";</script>
-                    </body></html>"""
-                )
-        except Exception as e:
-            logger.exception("Failed to update SSO session (wecom) %s", e)
-
-    return HTMLResponse(f"Logged in. Token: {token}")
+    return TokenResponse(access_token=jwt_token, user=UserOut.model_validate(user))

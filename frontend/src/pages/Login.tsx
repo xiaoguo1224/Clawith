@@ -20,9 +20,12 @@ export default function Login() {
     const [checkingEmail, setCheckingEmail] = useState(!!invitationCode && !!invitedEmail);
     const [tenant, setTenant] = useState<any>(null);
     const [resolving, setResolving] = useState(true);
-    const [ssoProviders, setSsoProviders] = useState<any[]>([]);
-    const [ssoLoading, setSsoLoading] = useState(false);
-    const [ssoError, setSsoError] = useState('');
+    const [oauthProviders, setOauthProviders] = useState<any[]>([]);
+    const [oauthLoading, setOauthLoading] = useState(false);
+    const [oauthError, setOauthError] = useState('');
+    const [oauthCompanyDirectory, setOauthCompanyDirectory] = useState<Array<{ id: string; name: string; slug: string }>>([]);
+    const [oauthDirectoryLoading, setOauthDirectoryLoading] = useState(false);
+    const [selectedOauthTenantId, setSelectedOauthTenantId] = useState('');
     const [tenantSelection, setTenantSelection] = useState<any[] | null>(null);
 
     const [form, setForm] = useState({
@@ -30,6 +33,37 @@ export default function Login() {
         password: '',
         tenant_id: '',
     });
+
+    // OAuth callback: IdP returns to API, which sets clawith_oauth_login_token and redirects here.
+    useEffect(() => {
+        if (searchParams.get('oauth_complete') !== '1') return;
+        let cancelled = false;
+        (async () => {
+            const tok = localStorage.getItem('clawith_oauth_login_token');
+            localStorage.removeItem('clawith_oauth_login_token');
+            if (!tok) {
+                if (!cancelled) {
+                    setError(t('auth.oauthMissingToken', 'Sign-in could not complete. Please try again.'));
+                    navigate('/login', { replace: true });
+                }
+                return;
+            }
+            localStorage.setItem('token', tok);
+            try {
+                const me = await authApi.me();
+                if (cancelled) return;
+                setAuth(me, tok);
+                navigate('/', { replace: true });
+            } catch {
+                if (!cancelled) {
+                    localStorage.removeItem('token');
+                    setError(t('auth.oauthSessionFailed', 'Could not load your profile. Please try again.'));
+                    navigate('/login', { replace: true });
+                }
+            }
+        })();
+        return () => { cancelled = true; };
+    }, [searchParams, navigate, setAuth, t]);
 
     useEffect(() => {
         document.documentElement.setAttribute('data-theme', 'dark');
@@ -55,7 +89,7 @@ export default function Login() {
                 .finally(() => setCheckingEmail(false));
         }
 
-        // Resolve tenant by domain (for SSO detection only, not for login form)
+        // Resolve tenant by domain (for OAuth buttons on company-specific host)
         const domain = window.location.host;
         if (domain.startsWith('localhost') || domain.startsWith('127.0.0.1')) {
             setResolving(false);
@@ -73,35 +107,66 @@ export default function Login() {
     }, []);
 
     useEffect(() => {
+        if (isRegister) return;
+        if (tenant?.sso_enabled && tenant?.id) return;
         let cancelled = false;
-        if (!tenant?.sso_enabled || isRegister) {
-            setSsoProviders([]);
-            setSsoError('');
+        setOauthDirectoryLoading(true);
+        tenantApi.publicOauthDirectory()
+            .then((list) => {
+                if (!cancelled) setOauthCompanyDirectory(list || []);
+            })
+            .catch(() => {
+                if (!cancelled) setOauthCompanyDirectory([]);
+            })
+            .finally(() => {
+                if (!cancelled) setOauthDirectoryLoading(false);
+            });
+        return () => { cancelled = true; };
+    }, [isRegister, tenant?.id, tenant?.sso_enabled]);
+
+    useEffect(() => {
+        let cancelled = false;
+        if (isRegister) {
+            setOauthProviders([]);
+            setOauthError('');
             return;
         }
-        if (!tenant?.id) return;
+        const tid =
+            tenant?.sso_enabled && tenant?.id
+                ? String(tenant.id)
+                : selectedOauthTenantId;
+        if (!tid) {
+            setOauthProviders([]);
+            setOauthLoading(false);
+            setOauthError('');
+            return;
+        }
 
-        setSsoLoading(true);
-        setSsoError('');
+        setOauthLoading(true);
+        setOauthError('');
 
-        fetchJson<{ session_id: string }>(`/sso/session?tenant_id=${tenant.id}`, { method: 'POST' })
-            .then(res => fetchJson<any[]>(`/sso/config?sid=${res.session_id}`))
-            .then(providers => {
+        fetchJson<any[]>(`/oauth/login-options?tenant_id=${encodeURIComponent(tid)}`)
+            .then((providers) => {
                 if (cancelled) return;
-                setSsoProviders(providers || []);
+                setOauthProviders(providers || []);
             })
             .catch(() => {
                 if (cancelled) return;
-                setSsoError(t('auth.ssoLoadFailed', 'Failed to load SSO providers.'));
-                setSsoProviders([]);
+                setOauthError(t('auth.oauthLoadFailed', 'Failed to load sign-in options.'));
+                setOauthProviders([]);
             })
             .finally(() => {
                 if (cancelled) return;
-                setSsoLoading(false);
+                setOauthLoading(false);
             });
 
         return () => { cancelled = true; };
-    }, [tenant?.id, tenant?.sso_enabled, isRegister, t]);
+    }, [tenant?.id, tenant?.sso_enabled, isRegister, selectedOauthTenantId, t]);
+
+    const dedicatedOauthTenant = !!(tenant?.sso_enabled && tenant?.id);
+    const showOauthCompanyPicker = !isRegister && !dedicatedOauthTenant && (oauthDirectoryLoading || oauthCompanyDirectory.length > 0);
+    const effectiveOauthTenantId = dedicatedOauthTenant && tenant?.id ? String(tenant.id) : selectedOauthTenantId;
+    const showOauthButtons = !isRegister && !!effectiveOauthTenantId;
 
     const toggleLang = () => {
         i18n.changeLanguage(i18n.language === 'zh' ? 'en' : 'zh');
@@ -258,10 +323,11 @@ export default function Login() {
         }
     };
 
-    const ssoMeta: Record<string, { label: string; icon: string }> = {
+    const oauthMeta: Record<string, { label: string; icon: string }> = {
         feishu: { label: 'Feishu', icon: '/feishu.png' },
         dingtalk: { label: 'DingTalk', icon: '/dingtalk.png' },
         wecom: { label: 'WeCom', icon: '/wecom.png' },
+        oauth2: { label: 'OAuth 2.0', icon: '' },
     };
 
     return (
@@ -363,34 +429,71 @@ export default function Login() {
                         </div>
                     )}
 
-                    {tenant && tenant.sso_enabled && !isRegister && (
-                        <div style={{ marginBottom: '24px' }}>
-                            <div style={{
-                                padding: '16px', borderRadius: '12px', background: 'rgba(59,130,246,0.08)',
-                                border: '1px solid rgba(59,130,246,0.15)', marginBottom: '16px',
-                                textAlign: 'center'
-                            }}>
-                                <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--accent-primary)', marginBottom: '4px' }}>
-                                    {tenant.name}
-                                </div>
-                                <div style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>
-                                    {t('auth.ssoNotice', 'Enterprise SSO is enabled for this domain.')}
-                                </div>
+                    {showOauthCompanyPicker && (
+                        <div style={{ marginBottom: '16px' }}>
+                            <label style={{ display: 'block', fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '6px' }}>
+                                {t('auth.oauthSelectCompany', 'Company')}
+                            </label>
+                            <select
+                                style={{
+                                    width: '100%',
+                                    padding: '12px 14px',
+                                    borderRadius: '8px',
+                                    border: '1px solid var(--border-subtle)',
+                                    background: 'var(--bg-secondary)',
+                                    color: 'var(--text-primary)',
+                                    fontSize: '14px',
+                                }}
+                                value={selectedOauthTenantId}
+                                onChange={(e) => setSelectedOauthTenantId(e.target.value)}
+                                disabled={oauthDirectoryLoading}
+                            >
+                                <option value="">
+                                    {oauthDirectoryLoading
+                                        ? t('auth.oauthDirectoryLoading', 'Loading companies…')
+                                        : t('auth.oauthSelectCompanyPlaceholder', '— Select your company —')}
+                                </option>
+                                {oauthCompanyDirectory.map((c) => (
+                                    <option key={c.id} value={c.id}>{c.name}</option>
+                                ))}
+                            </select>
+                            <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginTop: '6px' }}>
+                                {t('auth.oauthSelectCompanyHint', 'Then scan with Feishu, DingTalk, WeCom, or your OAuth provider.')}
                             </div>
+                        </div>
+                    )}
 
-                            {ssoLoading && (
-                                <div style={{ textAlign: 'center', color: 'var(--text-tertiary)', fontSize: '12px' }}>
-                                    {t('auth.ssoLoading', 'Loading SSO providers...')}
+                    {showOauthButtons && (
+                        <div style={{ marginBottom: '24px' }}>
+                            {dedicatedOauthTenant && tenant && (
+                                <div style={{
+                                    padding: '16px', borderRadius: '12px', background: 'rgba(59,130,246,0.08)',
+                                    border: '1px solid rgba(59,130,246,0.15)', marginBottom: '16px',
+                                    textAlign: 'center'
+                                }}>
+                                    <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--accent-primary)', marginBottom: '4px' }}>
+                                        {tenant.name}
+                                    </div>
+                                    <div style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>
+                                        {t('auth.oauthNotice', 'Scan to sign in with your work account.')}
+                                    </div>
                                 </div>
                             )}
 
-                            {!ssoLoading && ssoProviders.length > 0 && (
+                            {oauthLoading && (
+                                <div style={{ textAlign: 'center', color: 'var(--text-tertiary)', fontSize: '12px' }}>
+                                    {t('auth.oauthLoading', 'Loading sign-in options…')}
+                                </div>
+                            )}
+
+                            {!oauthLoading && oauthProviders.length > 0 && (
                                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '12px' }}>
-                                    {ssoProviders.map(p => {
-                                        const meta = ssoMeta[p.provider_type] || { label: p.name || p.provider_type, icon: '' };
+                                    {oauthProviders.map((p, idx) => {
+                                        const meta = oauthMeta[p.provider_type] || { label: p.name || p.provider_type, icon: '' };
                                         return (
                                             <button
-                                                key={p.provider_type}
+                                                key={`${p.provider_type}-${p.name || ''}-${idx}`}
+                                                type="button"
                                                 className="login-submit"
                                                 style={{
                                                     background: 'var(--bg-secondary)',
@@ -401,7 +504,7 @@ export default function Login() {
                                                     gap: '10px',
                                                     border: '1px solid var(--border-subtle)',
                                                 }}
-                                                onClick={() => window.location.href = p.url}
+                                                onClick={() => { window.location.href = p.url; }}
                                             >
                                                 {meta.icon ? (
                                                     <img src={meta.icon} alt={meta.label} width={18} height={18} style={{ borderRadius: '4px' }} />
@@ -417,9 +520,9 @@ export default function Login() {
                                 </div>
                             )}
 
-                            {!ssoLoading && ssoProviders.length === 0 && (
+                            {!oauthLoading && oauthProviders.length === 0 && (
                                 <div style={{ textAlign: 'center', color: 'var(--text-tertiary)', fontSize: '12px' }}>
-                                    {ssoError || t('auth.ssoNoProviders', 'No SSO providers configured.')}
+                                    {oauthError || t('auth.oauthNoProviders', 'No sign-in methods configured.')}
                                 </div>
                             )}
 

@@ -272,22 +272,14 @@ async def dingtalk_callback(
     db: AsyncSession = Depends(get_db),
 ):
     """Callback for DingTalk OAuth2 login."""
-    from app.models.identity import SSOScanSession
     from app.core.security import create_access_token
     from fastapi.responses import HTMLResponse
+    from app.schemas.schemas import TokenResponse, UserOut
     from app.services.auth_registry import auth_provider_registry
+    from app.services.oauth_login_redirect import oauth_web_login_success_response
+    from app.services.oauth_state import resolve_oauth_tenant_id
 
-    # 1. Resolve session to get tenant context
-    tenant_id = None
-    if state:
-        try:
-            sid = uuid.UUID(state)
-            s_res = await db.execute(select(SSOScanSession).where(SSOScanSession.id == sid))
-            session = s_res.scalar_one_or_none()
-            if session:
-                tenant_id = session.tenant_id
-        except (ValueError, AttributeError):
-            pass
+    tenant_id = await resolve_oauth_tenant_id(db, state)
 
     # 2. Get DingTalk provider config
     auth_provider = await auth_provider_registry.get_provider(db, "dingtalk", str(tenant_id) if tenant_id else None)
@@ -323,26 +315,7 @@ async def dingtalk_callback(
     # 4. Standard login
     token = create_access_token(str(user.id), user.role)
 
-    if state:
-        try:
-            sid = uuid.UUID(state)
-            s_res = await db.execute(select(SSOScanSession).where(SSOScanSession.id == sid))
-            session = s_res.scalar_one_or_none()
-            if session:
-                session.status = "authorized"
-                session.provider_type = "dingtalk"
-                session.user_id = user.id
-                session.access_token = token
-                session.error_msg = None
-                await db.commit()
-                return HTMLResponse(
-                    f"""<html><head><meta charset="utf-8" /></head>
-                    <body style="font-family: sans-serif; padding: 24px;">
-                        <div>SSO login successful. Redirecting...</div>
-                        <script>window.location.href = "/sso/entry?sid={sid}&complete=1";</script>
-                    </body></html>"""
-                )
-        except Exception as e:
-            logger.exception("Failed to update SSO session (dingtalk) %s", e)
+    if tenant_id is not None and state:
+        return oauth_web_login_success_response(token)
 
-    return HTMLResponse(f"Logged in. Token: {token}")
+    return TokenResponse(access_token=token, user=UserOut.model_validate(user))

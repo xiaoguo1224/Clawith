@@ -119,7 +119,17 @@
     "refresh": "Refresh QR code",
     "loginWithSSO": "Enterprise SSO Login",
     "ssoNotice": "Enterprise SSO is enabled for this domain.",
-    "standardLogin": "Standard Login"
+    "standardLogin": "Standard Login",
+    "oauthMissingToken": "Sign-in could not complete. Please try again.",
+    "oauthSessionFailed": "Could not load your profile. Please try again.",
+    "oauthLoadFailed": "Failed to load sign-in options.",
+    "oauthLoading": "Loading sign-in options…",
+    "oauthNoProviders": "No sign-in methods configured for this company.",
+    "oauthSelectCompany": "Company",
+    "oauthSelectCompanyPlaceholder": "— Select your company —",
+    "oauthSelectCompanyHint": "Then scan with Feishu, DingTalk, WeCom, or your OAuth provider.",
+    "oauthDirectoryLoading": "Loading companies…",
+    "oauthNotice": "Scan to sign in with your work account."
   },
   "roles": {
     "platformAdmin": "Platform Admin",
@@ -1312,6 +1322,9 @@
         "microsoft_teams": "Microsoft Teams: Requires client_id, client_secret, tenant_id."
       },
       "description": "Configure enterprise directory synchronization and Identity Provider settings.",
+      "ssoTitle": "OAuth login & custom domain",
+      "ssoDisabledHint": "Users open your company hostname and sign in with Feishu, DingTalk, WeCom, or OAuth (scan or authorize)—no separate portal.",
+      "ssoDomainDesc": "Hostname for the login page (must match DNS/TLS and IdP redirect URI configuration).",
       "notConfigured": "Not configured",
       "active": "Active",
       "providers": {
@@ -1332,10 +1345,10 @@
           "desc": "Generic OIDC Provider"
         }
       },
-      "ssoLoginToggle": "SSO Login",
-      "ssoLoginToggleHint": "Allow users to log in via this identity provider.",
-      "ssoSubdomain": "SSO Login URL",
-      "ssoSubdomainHint": "Share this URL with your team. SSO login buttons will appear when they visit this address.",
+      "ssoLoginToggle": "OAuth / scan login",
+      "ssoLoginToggleHint": "Show this provider on the login page; users scan or authorize with the vendor app.",
+      "ssoSubdomain": "Dedicated sign-in page URL",
+      "ssoSubdomainHint": "Share this link with your team. They can open it and scan to sign in (no separate portal step).",
       "callbackUrl": "Redirect URL (paste this in your app settings)",
       "callbackUrlHint": "Add this URL as the OAuth redirect URI in your identity provider's app configuration.",
       "clientId": "Client ID",
@@ -1354,8 +1367,8 @@
         "title": "Prerequisites for WeCom Integration",
         "syncTitle": "1. User Directory Sync",
         "syncDesc": "Directory sync via the contacts secret works for fetching user IDs. However, fetching full user details (name, avatar, email) requires the self-built app's IP to be whitelisted in WeCom — a setting that must be configured by the WeCom enterprise admin.",
-        "ssoTitle": "2. SSO Login (Single Sign-On)",
-        "ssoDesc": "WeCom OAuth requires the callback domain to be ICP-filed with a business entity matching the WeCom enterprise's registration. The platform domain (clawith.ai) is a .ai TLD which cannot be ICP-filed in mainland China, making SSO unavailable on the current domain. Requires either an ICP-filed .com/.cn domain or WeCom ISV (service provider) registration.",
+        "ssoTitle": "2. OAuth / scan login",
+        "ssoDesc": "WeCom web login requires the callback domain to be ICP-filed with a business entity matching the WeCom enterprise. The platform domain (clawith.ai) is a .ai TLD which cannot be ICP-filed in mainland China, so scan login may require your own ICP-filed .com/.cn domain or WeCom ISV registration.",
         "messagingTitle": "3. Proactive 1-to-1 Messaging (AI-initiated)",
         "messagingDesc": "Sending messages to individual users requires a valid WeCom API access token, which can only be obtained from a server IP that has been whitelisted in the self-built app's settings. Unlike Feishu, WeCom mandates IP-level restrictions on all API calls — there is no token-only authentication option.",
         "footerText": "Due to the above constraints, WeCom integration currently cannot be easily set up by most users. We are actively exploring alternative approaches — including WeCom ISV (service provider) registration and lower-friction API options — or we may advocate for WeCom to relax these restrictions for SaaS platforms. Configuration will be re-enabled once a viable path is available."
@@ -1720,9 +1733,9 @@
     "allowSelfCreate": "Allow users to create their own companies",
     "allowSelfCreateDesc": "When disabled, only platform admins can create companies.",
     "editCompany": "Edit Company",
-    "ssoConfigTitle": "SSO & Domain Configuration",
-    "ssoConfigDesc": "Configure SSO and custom domain for this company.",
-    "ssoEnabled": "Enable SSO",
+    "ssoConfigTitle": "OAuth login & domain",
+    "ssoConfigDesc": "Turn on scan/OAuth login and set the hostname where your team opens the login page.",
+    "ssoEnabled": "Enable OAuth / scan login for this company",
     "ssoDomain": "Custom Access Domain",
     "ssoDomainPlaceholder": "e.g. acme.clawith.com"
   }

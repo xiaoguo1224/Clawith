@@ -125,7 +125,7 @@ function DeptTree({ departments, parentId, selectedDept, onSelect, level }: {
     );
 }
 
-// ─── SSO Channel Section ────────────────────────────────
+// ─── Per–IdP OAuth / scan login (URLs + toggle; config lives in form above) ───
 function SsoChannelSection({ idpType, existingProvider, tenant, t }: {
     idpType: string; existingProvider: any; tenant: any; t: any;
 }) {
@@ -144,7 +144,7 @@ function SsoChannelSection({ idpType, existingProvider, tenant, t }: {
 
     const handleSsoToggle = async () => {
         if (!existingProvider) {
-            alert(t('enterprise.identity.saveFirst', 'Please save the configuration first to enable SSO.'));
+            alert(t('enterprise.identity.saveFirst', 'Please save the provider configuration first, then enable OAuth / scan login.'));
             return;
         }
         const newVal = !ssoEnabled;
@@ -917,8 +917,8 @@ function OrgTab({ tenant }: { tenant: any }) {
                                     <div style={{ padding: '0 20px 20px', background: 'var(--bg-secondary)' }}>
                                         {renderForm(idp.type, existingProvider)}
 
-                                        {/* Per-channel SSO Login URLs & Toggle */}
-                                        {['feishu', 'dingtalk', 'oauth2'].includes(idp.type) && (
+                                        {/* Per-channel OAuth / scan login URLs & toggle */}
+                                        {['feishu', 'dingtalk', 'wecom', 'oauth2'].includes(idp.type) && (
                                             <SsoChannelSection
                                                 idpType={idp.type}
                                                 existingProvider={existingProvider}

@@ -18,7 +18,7 @@ async def build_oauth_login_urls_for_tenant(
     public_base: str,
     state: str,
 ) -> list[dict]:
-    """Return [{provider_type, name, url}, ...] for active SSO-enabled identity providers."""
+    """Return [{provider_type, name, url}, ...] for IdPs with OAuth/scan login enabled."""
     query = select(IdentityProvider).where(
         IdentityProvider.is_active == True,
         IdentityProvider.sso_login_enabled == True,

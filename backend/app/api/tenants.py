@@ -11,11 +11,12 @@ from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
-from sqlalchemy import func as sqla_func, select
+from sqlalchemy import func as sqla_func, or_, select, exists
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.security import get_current_user, require_role, get_authenticated_user
 from app.database import get_db
+from app.models.identity import IdentityProvider
 from app.models.tenant import Tenant
 from app.models.user import User
 
@@ -336,6 +337,36 @@ async def get_registration_config(db: AsyncSession = Depends(get_db)):
     s = result.scalar_one_or_none()
     allowed = s.value.get("enabled", True) if s else True
     return {"allow_self_create_company": allowed}
+
+
+@router.get("/public-oauth-directory")
+async def public_oauth_directory(
+    q: str | None = None,
+    db: AsyncSession = Depends(get_db),
+):
+    """Companies that expose at least one OAuth/IdP login (for shared-host login picker)."""
+    stmt = (
+        select(Tenant.id, Tenant.name, Tenant.slug)
+        .where(Tenant.is_active == True)
+        .where(Tenant.sso_enabled == True)
+        .where(
+            exists(
+                select(IdentityProvider.id).where(
+                    IdentityProvider.tenant_id == Tenant.id,
+                    IdentityProvider.sso_login_enabled == True,
+                    IdentityProvider.is_active == True,
+                )
+            )
+        )
+        .order_by(Tenant.name.asc())
+        .limit(300)
+    )
+    if q and q.strip():
+        pat = f"%{q.strip()}%"
+        stmt = stmt.where(or_(Tenant.name.ilike(pat), Tenant.slug.ilike(pat)))
+
+    result = await db.execute(stmt)
+    return [{"id": str(r.id), "name": r.name, "slug": r.slug} for r in result.all()]
 
 
 # ─── Public: Resolve Tenant by Domain ───────────────────
