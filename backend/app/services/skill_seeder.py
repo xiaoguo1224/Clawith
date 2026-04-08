@@ -559,6 +559,15 @@ Plan would be:
         "is_default": True,
         "files": [],  # populated at runtime from agent_template/skills/MCP_INSTALLER.md
     },
+    # ─── Native visual recognition (opt-in) ───────────────────
+    {
+        "name": "Visual Recognition (Native Vision)",
+        "description": "Use the primary LLM's built-in vision for images in chat (e.g. Kimi 2.5, GPT-4o). No MCP or separate vision APIs.",
+        "category": "analysis",
+        "icon": "👁️",
+        "folder_name": "visual-recognition",
+        "files": [],  # populated at runtime from agent_template/skills/VISUAL_RECOGNITION.md
+    },
 ]
 
 
@@ -585,6 +594,12 @@ async def seed_skills():
                 s["files"] = [{"path": "SKILL.md", "content": mcp_file.read_text(encoding="utf-8")}]
             else:
                 logger.warning("[SkillSeeder] MCP_INSTALLER.md not found in agent_template/skills/")
+        elif s["folder_name"] == "visual-recognition" and not s["files"]:
+            vr_file = _template_skills_dir / "VISUAL_RECOGNITION.md"
+            if vr_file.exists():
+                s["files"] = [{"path": "SKILL.md", "content": vr_file.read_text(encoding="utf-8")}]
+            else:
+                logger.warning("[SkillSeeder] VISUAL_RECOGNITION.md not found in agent_template/skills/")
 
     async with async_session() as db:
         for skill_data in BUILTIN_SKILLS:

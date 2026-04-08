@@ -33,6 +33,8 @@ services:
       args:
         CLAWITH_PIP_INDEX_URL: ${CLAWITH_PIP_INDEX_URL:-}
         CLAWITH_PIP_TRUSTED_HOST: ${CLAWITH_PIP_TRUSTED_HOST:-}
+        # Fallback when the primary mirror lacks wheels (e.g. newer scipy/polars). Example: https://pypi.org/simple
+        CLAWITH_PIP_EXTRA_INDEX_URL: ${CLAWITH_PIP_EXTRA_INDEX_URL:-}
     restart: unless-stopped
     command: ["/bin/bash", "/app/entrypoint.sh"]
     environment:

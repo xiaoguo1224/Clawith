@@ -8,14 +8,23 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 COPY pyproject.toml ./
+# setuptools package discovery needs the `app` tree; without it `pip install .` fails at image build.
+COPY app ./app
+
 ARG CLAWITH_PIP_INDEX_URL
 ARG CLAWITH_PIP_TRUSTED_HOST
-RUN if [ -n "$CLAWITH_PIP_INDEX_URL" ] && [ -n "$CLAWITH_PIP_TRUSTED_HOST" ]; then \
-        pip install --no-cache-dir --index-url "$CLAWITH_PIP_INDEX_URL" --trusted-host "$CLAWITH_PIP_TRUSTED_HOST" .; \
+# Optional: e.g. https://pypi.org/simple — use when the primary mirror is missing wheels (pandas/scipy/sklearn, etc.).
+ARG CLAWITH_PIP_EXTRA_INDEX_URL
+
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
+    EXTRA=""; \
+    if [ -n "$CLAWITH_PIP_EXTRA_INDEX_URL" ]; then EXTRA="$EXTRA --extra-index-url=$CLAWITH_PIP_EXTRA_INDEX_URL"; fi && \
+    if [ -n "$CLAWITH_PIP_INDEX_URL" ] && [ -n "$CLAWITH_PIP_TRUSTED_HOST" ]; then \
+        pip install --no-cache-dir --index-url "$CLAWITH_PIP_INDEX_URL" --trusted-host "$CLAWITH_PIP_TRUSTED_HOST" $EXTRA .; \
     elif [ -n "$CLAWITH_PIP_INDEX_URL" ]; then \
-        pip install --no-cache-dir --index-url "$CLAWITH_PIP_INDEX_URL" .; \
+        pip install --no-cache-dir --index-url "$CLAWITH_PIP_INDEX_URL" $EXTRA .; \
     else \
-        pip install --no-cache-dir .; \
+        pip install --no-cache-dir $EXTRA .; \
     fi
 
 # ─── Production ─────────────────────────────────────────
