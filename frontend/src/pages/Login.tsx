@@ -539,14 +539,14 @@ export default function Login() {
 
                     <form onSubmit={handleSubmit} className="login-form">
                         <div className="login-field">
-                            <label>{t('auth.email')}</label>
+                            <label>{isRegister ? t('auth.email') : t('auth.loginIdentifier')}</label>
                             <input
-                                type="email"
+                                type={isRegister ? 'email' : 'text'}
                                 value={form.login_identifier}
                                 onChange={(e) => setForm({ ...form, login_identifier: e.target.value })}
                                 required
                                 autoFocus
-                                placeholder={t('auth.emailPlaceholder')}
+                                placeholder={isRegister ? t('auth.emailPlaceholder') : t('auth.loginIdentifierPlaceholder')}
                             />
                         </div>
 
@@ -611,7 +611,7 @@ export default function Login() {
                                     {t('auth.selectOrganization', '选择公司')}
                                 </h3>
                                 <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.42)', marginBottom: '20px', lineHeight: '1.5' }}>
-                                    {t('auth.multiTenantPrompt', '该邮箱对应多个公司，请选择要登录的公司：')}
+                                    {t('auth.multiTenantPrompt')}
                                 </p>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                                     {tenantSelection.map((tenant: any) => (

@@ -658,7 +658,7 @@ async def wecom_callback(
     state: str = None,
     db: AsyncSession = Depends(get_db),
 ):
-    """WeCom web OAuth (qrConnect) — state must be tenant id for hosted login."""
+    """WeCom web OAuth callback (qrConnect or OAuth2 / snsapi_privateinfo per IdP config)."""
     from app.services.auth_provider import WeComAuthProvider
     from app.services.oauth_login_redirect import oauth_web_login_success_response
     from app.services.oauth_state import resolve_oauth_tenant_id

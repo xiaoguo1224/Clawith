@@ -4,6 +4,8 @@ export interface User {
     id: string;
     username: string;
     email: string;
+    /** Same as Identity.phone; use with password on /auth/login */
+    primary_mobile?: string | null;
     display_name: string;
     avatar_url?: string;
     role: 'platform_admin' | 'org_admin' | 'agent_admin' | 'member';

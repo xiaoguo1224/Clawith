@@ -80,10 +80,15 @@ const getAgentBadgeStatus = (agent: any): string | null => {
 };
 
 /* ────── Account Settings Modal ────── */
+function normalizeAccountPhone(raw: string): string {
+    return raw.replace(/[\s\-+]/g, '').trim();
+}
+
 function AccountSettingsModal({ user, onClose, isChinese }: { user: any; onClose: () => void; isChinese: boolean }) {
     const { setUser } = useAuthStore();
     const [username, setUsername] = useState(user?.username || '');
     const [email, setEmail] = useState(user?.email || '');
+    const [primaryMobile, setPrimaryMobile] = useState(user?.primary_mobile || '');
     const [displayName, setDisplayName] = useState(user?.display_name || '');
     const [oldPassword, setOldPassword] = useState('');
     const [newPassword, setNewPassword] = useState('');
@@ -105,6 +110,11 @@ function AccountSettingsModal({ user, onClose, isChinese }: { user: any; onClose
             if (username !== user?.username) body.username = username;
             if (email !== user?.email) body.email = email;
             if (displayName !== user?.display_name) body.display_name = displayName;
+            const prevPhone = normalizeAccountPhone((user?.primary_mobile as string) || '');
+            const nextPhone = normalizeAccountPhone(primaryMobile);
+            if (nextPhone !== prevPhone) {
+                body.primary_mobile = nextPhone || null;
+            }
             if (Object.keys(body).length === 0) { showMsg(isChinese ? '没有变更' : 'No changes', 'error'); setSaving(false); return; }
             const res = await fetch('/api/auth/me', {
                 method: 'PATCH',
@@ -198,6 +208,24 @@ function AccountSettingsModal({ user, onClose, isChinese }: { user: any; onClose
                                 {isChinese ? '邮箱未验证，请点击按钮发送验证邮件' : 'Email not verified. Click button to send verification email.'}
                             </div>
                         )}
+                    </div>
+                    <div>
+                        <label style={labelStyle}>{isChinese ? '手机号（用于登录）' : 'Mobile (for sign-in)'}</label>
+                        <input
+                            className="form-input"
+                            type="tel"
+                            inputMode="tel"
+                            autoComplete="tel"
+                            value={primaryMobile}
+                            onChange={e => setPrimaryMobile(e.target.value)}
+                            style={inputStyle}
+                            placeholder={isChinese ? '选填，与密码一起用于登录' : 'Optional; sign in with this number and password'}
+                        />
+                        <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginTop: '4px' }}>
+                            {isChinese
+                                ? '保存后可在登录页使用「手机号 + 密码」。请与登录时输入格式一致（建议仅数字）。'
+                                : 'After saving, use this number plus your password on the login page. Use the same format as here (digits recommended).'}
+                        </div>
                     </div>
                     <div><label style={labelStyle}>{isChinese ? '显示名称' : 'Display Name'}</label><input className="form-input" value={displayName} onChange={e => setDisplayName(e.target.value)} style={inputStyle} /></div>
                     <div style={{ display: 'flex', justifyContent: 'flex-end' }}><button className="btn btn-primary" onClick={handleSaveProfile} disabled={saving} style={{ padding: '6px 16px', fontSize: '12px' }}>{saving ? '...' : (isChinese ? '保存' : 'Save')}</button></div>

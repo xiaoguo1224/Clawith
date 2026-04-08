@@ -486,7 +486,7 @@ function OrgTab({ tenant }: { tenant: any }) {
             const defaults: any = {
                 feishu: { app_id: '', app_secret: '', corp_id: '', oauth_redirect_uri: '' },
                 dingtalk: { app_key: '', app_secret: '', corp_id: '', oauth_redirect_uri: '' },
-                wecom: { corp_id: '', secret: '', agent_id: '', app_secret: '', bot_id: '', bot_secret: '', verify_token: '', verify_aes_key: '', oauth_redirect_uri: '' },
+                wecom: { corp_id: '', secret: '', agent_id: '', app_secret: '', bot_id: '', bot_secret: '', verify_token: '', verify_aes_key: '', oauth_redirect_uri: '', wecom_oauth_privateinfo: false },
             };
             const nameMap: Record<string, string> = { feishu: 'Feishu', wecom: 'WeCom', dingtalk: 'DingTalk', oauth2: 'OAuth2' };
             setForm({
@@ -646,8 +646,31 @@ function OrgTab({ tenant }: { tenant: any }) {
                                     autoComplete="off"
                                 />
                                 <div style={{ fontSize: '10px', color: 'var(--text-tertiary)', marginTop: '4px' }}>
-                                    {t('enterprise.identity.wecomAgentIdHint', 'Self-built app AgentId — required for scan-to-login (qrConnect).')}
+                                    {t('enterprise.identity.wecomAgentIdHint', 'Self-built app AgentId — required for web login (qrConnect or OAuth).')}
                                 </div>
+                            </div>
+                            <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                                <label
+                                    style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', cursor: 'pointer', fontWeight: 500, color: 'var(--text-primary)' }}
+                                >
+                                    <input
+                                        type="checkbox"
+                                        checked={!!form.config.wecom_oauth_privateinfo}
+                                        onChange={e =>
+                                            setForm({
+                                                ...form,
+                                                config: { ...form.config, wecom_oauth_privateinfo: e.target.checked },
+                                            })
+                                        }
+                                        style={{ marginTop: '3px' }}
+                                    />
+                                    <span>
+                                        {t('enterprise.identity.wecomPrivateInfoOAuth')}
+                                        <div style={{ fontSize: '10px', color: 'var(--text-tertiary)', marginTop: '4px', fontWeight: 400 }}>
+                                            {t('enterprise.identity.wecomPrivateInfoOAuthHint')}
+                                        </div>
+                                    </span>
+                                </label>
                             </div>
                             <div className="form-group" style={{ gridColumn: '1 / -1' }}>
                                 <label className="form-label">{t('enterprise.identity.oauthRedirectUri')}</label>

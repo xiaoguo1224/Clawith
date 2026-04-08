@@ -83,7 +83,28 @@ async def build_oauth_login_urls_for_tenant(
             agent_id = cfg.get("agent_id")
             if corp_id and agent_id:
                 redir = resolve_oauth_redirect_uri(cfg, public_base, "wecom")
-                url = f"https://open.work.weixin.qq.com/wwopen/sso/qrConnect?appid={corp_id}&agentid={agent_id}&redirect_uri={quote(redir)}&state={state}"
+                # qrConnect: works in desktop browsers (scan QR). OAuth2 authorize + snsapi_privateinfo
+                # returns user_ticket for getuserdetail (mobile/email) but only opens inside WeCom client
+                # — desktop Chrome shows "请在企业微信客户端打开链接" (doc 91022 / 91023).
+                if cfg.get("wecom_oauth_privateinfo"):
+                    url = (
+                        "https://open.weixin.qq.com/connect/oauth2/authorize"
+                        f"?appid={corp_id}"
+                        f"&redirect_uri={quote(redir, safe='')}"
+                        "&response_type=code"
+                        "&scope=snsapi_privateinfo"
+                        f"&agentid={agent_id}"
+                        f"&state={quote(state, safe='')}"
+                        "#wechat_redirect"
+                    )
+                else:
+                    url = (
+                        "https://open.work.weixin.qq.com/wwopen/sso/qrConnect"
+                        f"?appid={corp_id}"
+                        f"&agentid={agent_id}"
+                        f"&redirect_uri={quote(redir, safe='')}"
+                        f"&state={quote(state, safe='')}"
+                    )
                 auth_urls.append({"provider_type": "wecom", "name": p.name, "url": url})
 
         elif p.provider_type == "oauth2":
