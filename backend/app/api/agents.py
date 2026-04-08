@@ -21,6 +21,22 @@ from app.schemas.schemas import AgentCreate, AgentOut, AgentUpdate
 router = APIRouter(prefix="/agents", tags=["agents"])
 
 
+async def _validate_agent_permission_user_ids(
+    db: AsyncSession, tenant_id: uuid.UUID | None, user_ids: list[uuid.UUID]
+) -> None:
+    """Ensure shared-agent members are real users in the same tenant."""
+    if not tenant_id or not user_ids:
+        return
+    for uid in user_ids:
+        r = await db.execute(select(User).where(User.id == uid))
+        u = r.scalar_one_or_none()
+        if not u or u.tenant_id != tenant_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Each permission user must belong to the agent's organization",
+            )
+
+
 def _serialize_dt(value: datetime | None) -> str | None:
     return value.isoformat() if value else None
 
@@ -276,6 +292,7 @@ async def create_agent(
         db.add(AgentPermission(agent_id=agent.id, scope_type="company", access_level=access_level))
     elif data.permission_scope_type == "user":
         if data.permission_scope_ids:
+            await _validate_agent_permission_user_ids(db, target_tenant_id, list(data.permission_scope_ids))
             for scope_id in data.permission_scope_ids:
                 db.add(AgentPermission(agent_id=agent.id, scope_type="user", scope_id=scope_id, access_level=access_level))
         else:
@@ -450,8 +467,10 @@ async def update_agent_permissions(
         db.add(AgentPermission(agent_id=agent_id, scope_type="company", access_level=access_level))
     elif scope_type == "user":
         if scope_ids:
-            for sid in scope_ids:
-                db.add(AgentPermission(agent_id=agent_id, scope_type="user", scope_id=uuid.UUID(sid), access_level=access_level))
+            uuids = [uuid.UUID(sid) for sid in scope_ids]
+            await _validate_agent_permission_user_ids(db, agent.tenant_id, uuids)
+            for uid in uuids:
+                db.add(AgentPermission(agent_id=agent_id, scope_type="user", scope_id=uid, access_level=access_level))
         else:
             # "仅自己"
             db.add(AgentPermission(agent_id=agent_id, scope_type="user", scope_id=current_user.id, access_level="manage"))

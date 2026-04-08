@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { agentApi, channelApi, enterpriseApi, skillApi } from '../services/api';
+import { agentApi, channelApi, enterpriseApi, fetchJson, skillApi } from '../services/api';
+import { useAuthStore } from '../stores';
 import ChannelConfig from '../components/ChannelConfig';
 import LinearCopyButton from '../components/LinearCopyButton';
 const STEPS = ['basicInfo', 'personality', 'skills', 'permissions', 'channel'] as const;
@@ -71,6 +72,7 @@ export default function AgentCreate() {
     const [createdApiKey, setCreatedApiKey] = useState('');
     // Current company (tenant) selection from layout sidebar
     const [currentTenant] = useState<string | null>(() => localStorage.getItem('current_tenant_id'));
+    const currentUser = useAuthStore((s) => s.user);
 
     const [form, setForm] = useState({
         name: '',
@@ -81,6 +83,7 @@ export default function AgentCreate() {
         fallback_model_id: '' as string,
         permission_scope_type: 'company',
         permission_access_level: 'use',
+        permission_scope_ids: [] as string[],
         template_id: '' as string,
         max_tokens_per_day: '',
         max_tokens_per_month: '',
@@ -104,6 +107,12 @@ export default function AgentCreate() {
     const { data: globalSkills = [] } = useQuery({
         queryKey: ['global-skills'],
         queryFn: skillApi.list,
+    });
+
+    const { data: orgUsersForPicker = [] } = useQuery({
+        queryKey: ['org-users-agent-create', currentTenant],
+        queryFn: () => fetchJson<any[]>(`/org/users${currentTenant ? `?tenant_id=${currentTenant}` : ''}`),
+        enabled: !!currentTenant,
     });
 
     // Auto-select default skills
@@ -239,9 +248,18 @@ export default function AgentCreate() {
         return Object.keys(errors).length === 0;
     };
 
+    const validatePermissionsStep = (): boolean => {
+        if (form.permission_scope_type === 'user' && form.permission_scope_ids.length === 0) {
+            setError(t('wizard.step4.pickAtLeastOne', 'Select at least one member'));
+            return false;
+        }
+        return true;
+    };
+
     const handleNext = () => {
         setError('');
         if (step === 0 && !validateStep0()) return;
+        if (step === 3 && !validatePermissionsStep()) return;
         setStep(step + 1);
     };
 
@@ -250,6 +268,7 @@ export default function AgentCreate() {
         if (step === 0 || agentType === 'openclaw') {
             if (!validateStep0()) return;
         }
+        if (!validatePermissionsStep()) return;
         createMutation.mutate({
             name: form.name,
             agent_type: agentType,
@@ -264,6 +283,8 @@ export default function AgentCreate() {
             max_tokens_per_month: form.max_tokens_per_month ? Number(form.max_tokens_per_month) : undefined,
             skill_ids: agentType === 'native' ? form.skill_ids : [],
             permission_access_level: form.permission_access_level,
+            permission_scope_ids:
+                form.permission_scope_type === 'user' ? form.permission_scope_ids.map((x) => x) : undefined,
             tenant_id: currentTenant || undefined,
         });
     };
@@ -490,7 +511,23 @@ For humans, the message is delivered via their available channel (e.g. Feishu).`
                                     borderRadius: '8px', cursor: 'pointer',
                                 }}>
                                     <input type="radio" name="scope" checked={form.permission_scope_type === scope.value}
-                                        onChange={() => setForm({ ...form, permission_scope_type: scope.value })} />
+                                        onChange={() => {
+                                            if (scope.value === 'user') {
+                                                const uid = currentUser?.id;
+                                                setForm((f) => ({
+                                                    ...f,
+                                                    permission_scope_type: 'user',
+                                                    permission_scope_ids:
+                                                        f.permission_scope_ids.length > 0
+                                                            ? f.permission_scope_ids
+                                                            : uid
+                                                                ? [uid]
+                                                                : [],
+                                                }));
+                                            } else {
+                                                setForm({ ...form, permission_scope_type: 'company' });
+                                            }
+                                        }} />
                                     <div>
                                         <div style={{ fontWeight: 500, fontSize: '13px' }}>{scope.label}</div>
                                         <div style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>{scope.desc}</div>
@@ -498,6 +535,72 @@ For humans, the message is delivered via their available channel (e.g. Feishu).`
                                 </label>
                             ))}
                         </div>
+                        {form.permission_scope_type === 'user' && (
+                            <div style={{ marginTop: '14px' }}>
+                                <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '8px' }}>
+                                    {t('wizard.step4.pickMembersHint', 'Choose colleagues who may use this agent. The creator always has full access.')}
+                                </div>
+                                {!currentTenant && (
+                                    <div style={{ fontSize: '12px', color: 'var(--warning)', marginBottom: '8px' }}>
+                                        {t('wizard.step4.needTenantForPicker', 'Select a company in the sidebar to load the member list.')}
+                                    </div>
+                                )}
+                                <div style={{ maxHeight: '200px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                    {orgUsersForPicker.map((u: any) => {
+                                        const uid = String(u.id);
+                                        const checked = form.permission_scope_ids.includes(uid);
+                                        return (
+                                            <label key={uid} style={{
+                                                display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 10px',
+                                                borderRadius: '8px', border: '1px solid var(--border-subtle)', cursor: 'pointer',
+                                                background: checked ? 'var(--accent-subtle)' : 'var(--bg-elevated)',
+                                            }}>
+                                                <input
+                                                    type="checkbox"
+                                                    checked={checked}
+                                                    onChange={(e) => {
+                                                        setForm((f) => {
+                                                            const next = new Set(f.permission_scope_ids);
+                                                            if (e.target.checked) next.add(uid);
+                                                            else next.delete(uid);
+                                                            return { ...f, permission_scope_ids: [...next] };
+                                                        });
+                                                    }}
+                                                />
+                                                <span style={{ fontSize: '13px' }}>{u.display_name || u.username || u.email || uid}</span>
+                                            </label>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        )}
+                        {(form.permission_scope_type === 'company' || form.permission_scope_type === 'user') && (
+                            <div style={{ marginTop: '16px' }}>
+                                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '10px' }}>
+                                    {t('wizard.step4.accessLevel', 'Default Access Level')}
+                                </label>
+                                <div style={{ display: 'flex', gap: '8px' }}>
+                                    {[
+                                        { value: 'use', icon: '👁️', label: t('wizard.step4.useLevel', 'Use'), desc: t('wizard.step4.useDesc', 'Can use Task, Chat, Tools, Skills, Workspace') },
+                                        { value: 'manage', icon: '⚙️', label: t('wizard.step4.manageLevel', 'Manage'), desc: t('wizard.step4.manageDesc', 'Full access including Settings, Mind, Relationships') },
+                                    ].map((lvl) => (
+                                        <label key={lvl.value} style={{
+                                            flex: 1, display: 'flex', alignItems: 'flex-start', gap: '10px', padding: '12px',
+                                            background: form.permission_access_level === lvl.value ? 'var(--accent-subtle)' : 'var(--bg-elevated)',
+                                            border: `1px solid ${form.permission_access_level === lvl.value ? 'var(--accent-primary)' : 'var(--border-default)'}`,
+                                            borderRadius: '8px', cursor: 'pointer',
+                                        }}>
+                                            <input type="radio" name="access_level_oc" checked={form.permission_access_level === lvl.value}
+                                                onChange={() => setForm({ ...form, permission_access_level: lvl.value })} style={{ marginTop: '2px' }} />
+                                            <div>
+                                                <div style={{ fontWeight: 500, fontSize: '13px' }}>{lvl.icon} {lvl.label}</div>
+                                                <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginTop: '2px' }}>{lvl.desc}</div>
+                                            </div>
+                                        </label>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
                     </div>
 
                     {/* Actions */}
@@ -769,7 +872,23 @@ For humans, the message is delivered via their available channel (e.g. Feishu).`
                                     borderRadius: '8px', cursor: 'pointer',
                                 }}>
                                     <input type="radio" name="scope" checked={form.permission_scope_type === scope.value}
-                                        onChange={() => setForm({ ...form, permission_scope_type: scope.value })} />
+                                        onChange={() => {
+                                            if (scope.value === 'user') {
+                                                const uid = currentUser?.id;
+                                                setForm((f) => ({
+                                                    ...f,
+                                                    permission_scope_type: 'user',
+                                                    permission_scope_ids:
+                                                        f.permission_scope_ids.length > 0
+                                                            ? f.permission_scope_ids
+                                                            : uid
+                                                                ? [uid]
+                                                                : [],
+                                                }));
+                                            } else {
+                                                setForm({ ...form, permission_scope_type: 'company' });
+                                            }
+                                        }} />
 
                                     <div>
                                         <div style={{ fontWeight: 500, fontSize: '13px' }}>{scope.label}</div>
@@ -779,8 +898,48 @@ For humans, the message is delivered via their available channel (e.g. Feishu).`
                             ))}
                         </div>
 
-                        {/* Access Level — only for company scope */}
-                        {form.permission_scope_type === 'company' && (
+                        {form.permission_scope_type === 'user' && (
+                            <div style={{ marginTop: '14px' }}>
+                                <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '8px' }}>
+                                    {t('wizard.step4.pickMembersHint', 'Choose colleagues who may use this agent. The creator always has full access.')}
+                                </div>
+                                {!currentTenant && (
+                                    <div style={{ fontSize: '12px', color: 'var(--warning)', marginBottom: '8px' }}>
+                                        {t('wizard.step4.needTenantForPicker', 'Select a company in the sidebar to load the member list.')}
+                                    </div>
+                                )}
+                                <div style={{ maxHeight: '220px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                    {orgUsersForPicker.map((u: any) => {
+                                        const uid = String(u.id);
+                                        const checked = form.permission_scope_ids.includes(uid);
+                                        return (
+                                            <label key={uid} style={{
+                                                display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 10px',
+                                                borderRadius: '8px', border: '1px solid var(--border-subtle)', cursor: 'pointer',
+                                                background: checked ? 'var(--accent-subtle)' : 'var(--bg-elevated)',
+                                            }}>
+                                                <input
+                                                    type="checkbox"
+                                                    checked={checked}
+                                                    onChange={(e) => {
+                                                        setForm((f) => {
+                                                            const next = new Set(f.permission_scope_ids);
+                                                            if (e.target.checked) next.add(uid);
+                                                            else next.delete(uid);
+                                                            return { ...f, permission_scope_ids: [...next] };
+                                                        });
+                                                    }}
+                                                />
+                                                <span style={{ fontSize: '13px' }}>{u.display_name || u.username || u.email || uid}</span>
+                                            </label>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Access Level — company or selected members */}
+                        {(form.permission_scope_type === 'company' || form.permission_scope_type === 'user') && (
                             <div>
                                 <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '10px' }}>
                                     {t('wizard.step4.accessLevel', 'Default Access Level')}

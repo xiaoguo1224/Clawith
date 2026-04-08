@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
-import { agentApi } from '../services/api';
+import { agentApi, fetchJson } from '../services/api';
+import { useAuthStore } from '../stores';
 import LinearCopyButton from '../components/LinearCopyButton';
 function fetchAuth<T>(url: string, options?: RequestInit): Promise<T> {
     const token = localStorage.getItem('token');
@@ -22,6 +23,7 @@ export default function OpenClawSettings({ agent, agentId }: OpenClawSettingsPro
     const queryClient = useQueryClient();
     const navigate = useNavigate();
     const isChinese = i18n.language?.startsWith('zh');
+    const currentUser = useAuthStore((s) => s.user);
 
     // ─── API Key state ──────────────────────────────────
     const [apiKey, setApiKey] = useState<string | null>(null);
@@ -74,12 +76,44 @@ export default function OpenClawSettings({ agent, agentId }: OpenClawSettingsPro
         enabled: !!agentId,
     });
 
+    const tenantIdForPicker =
+        agent?.tenant_id ||
+        currentUser?.tenant_id ||
+        (typeof localStorage !== 'undefined' ? localStorage.getItem('current_tenant_id') : null);
+    const { data: orgUsersForPerm = [] } = useQuery({
+        queryKey: ['org-users-openclaw-perm', tenantIdForPicker],
+        queryFn: () =>
+            fetchJson<any[]>(`/org/users${tenantIdForPicker ? `?tenant_id=${tenantIdForPicker}` : ''}`),
+        enabled: !!agentId && !!tenantIdForPicker,
+    });
+
+    const selectedUserIds = (): string[] => {
+        const raw = permData?.scope_ids || [];
+        if (raw.length > 0) return raw.map(String);
+        if (currentUser?.id) return [String(currentUser.id)];
+        return [];
+    };
+
     const handleScopeChange = async (newScope: string) => {
         try {
+            let ids: string[] = [];
+            if (newScope === 'user') {
+                const existing = permData?.scope_ids || [];
+                ids =
+                    existing.length > 0
+                        ? existing.map(String)
+                        : currentUser?.id
+                          ? [String(currentUser.id)]
+                          : [];
+            }
             await fetchAuth(`/agents/${agentId}/permissions`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ scope_type: newScope, scope_ids: [], access_level: permData?.access_level || 'use' }),
+                body: JSON.stringify({
+                    scope_type: newScope,
+                    scope_ids: ids,
+                    access_level: permData?.access_level || 'use',
+                }),
             });
             queryClient.invalidateQueries({ queryKey: ['agent-permissions', agentId] });
             queryClient.invalidateQueries({ queryKey: ['agent', agentId] });
@@ -90,15 +124,40 @@ export default function OpenClawSettings({ agent, agentId }: OpenClawSettingsPro
 
     const handleAccessLevelChange = async (newLevel: string) => {
         try {
+            const st = permData?.scope_type || 'company';
+            const ids = st === 'user' ? selectedUserIds() : [];
             await fetchAuth(`/agents/${agentId}/permissions`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ scope_type: permData?.scope_type || 'company', scope_ids: permData?.scope_ids || [], access_level: newLevel }),
+                body: JSON.stringify({ scope_type: st, scope_ids: ids, access_level: newLevel }),
             });
             queryClient.invalidateQueries({ queryKey: ['agent-permissions', agentId] });
             queryClient.invalidateQueries({ queryKey: ['agent', agentId] });
         } catch (e) {
             console.error('Failed to update access level', e);
+        }
+    };
+
+    const toggleMember = async (userId: string, checked: boolean) => {
+        try {
+            const cur = new Set(selectedUserIds());
+            if (checked) cur.add(String(userId));
+            else cur.delete(String(userId));
+            let next = [...cur];
+            if (next.length === 0 && currentUser?.id) next = [String(currentUser.id)];
+            await fetchAuth(`/agents/${agentId}/permissions`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    scope_type: 'user',
+                    scope_ids: next,
+                    access_level: permData?.access_level || 'use',
+                }),
+            });
+            queryClient.invalidateQueries({ queryKey: ['agent-permissions', agentId] });
+            queryClient.invalidateQueries({ queryKey: ['agent', agentId] });
+        } catch (e) {
+            console.error('Failed to update member list', e);
         }
     };
 
@@ -266,19 +325,55 @@ export default function OpenClawSettings({ agent, agentId }: OpenClawSettingsPro
                                 <div style={{ fontWeight: 500, fontSize: '13px' }}>
                                     {scope === 'company'
                                         ? t('agent.settings.perm.companyWide', 'Company-wide')
-                                        : t('agent.settings.perm.onlyMe', 'Only Me')}
+                                        : t('agent.settings.perm.onlyMe', 'Selected members')}
                                 </div>
                                 <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginTop: '2px' }}>
                                     {scope === 'company' && t('agent.settings.perm.companyWideDesc', 'All users in the organization can use this agent')}
-                                    {scope === 'user' && t('agent.settings.perm.onlyMeDesc', 'Only the creator can use this agent')}
+                                    {scope === 'user' && t('agent.settings.perm.onlyMeDesc', 'Only selected organization members can use this agent; the creator always has full access.')}
                                 </div>
                             </div>
                         </label>
                     ))}
                 </div>
 
-                {/* Access Level for company scope */}
-                {currentScope === 'company' && isOwner && (
+                {currentScope === 'user' && isOwner && (
+                    <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: '12px', marginBottom: '12px' }}>
+                        <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, marginBottom: '8px' }}>
+                            {t('agent.settings.perm.membersLabel', 'Members with access')}
+                        </label>
+                        <div style={{ maxHeight: '200px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                            {orgUsersForPerm.map((u: any) => {
+                                const uid = String(u.id);
+                                const checked = selectedUserIds().includes(uid);
+                                return (
+                                    <label
+                                        key={uid}
+                                        style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '10px',
+                                            padding: '8px 10px',
+                                            borderRadius: '8px',
+                                            border: '1px solid var(--border-subtle)',
+                                            cursor: 'pointer',
+                                            background: checked ? 'rgba(99,102,241,0.06)' : 'transparent',
+                                        }}
+                                    >
+                                        <input
+                                            type="checkbox"
+                                            checked={checked}
+                                            onChange={(e) => toggleMember(uid, e.target.checked)}
+                                        />
+                                        <span style={{ fontSize: '13px' }}>{u.display_name || u.username || u.email || uid}</span>
+                                    </label>
+                                );
+                            })}
+                        </div>
+                    </div>
+                )}
+
+                {/* Access Level for company or selected members */}
+                {(currentScope === 'company' || currentScope === 'user') && isOwner && (
                     <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: '12px' }}>
                         <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, marginBottom: '8px' }}>
                             {t('agent.settings.perm.defaultAccess', 'Default Access Level')}
@@ -314,7 +409,7 @@ export default function OpenClawSettings({ agent, agentId }: OpenClawSettingsPro
                     </div>
                 )}
 
-                {currentScope !== 'company' && permData?.scope_names?.length > 0 && (
+                {!isOwner && currentScope === 'user' && permData?.scope_names?.length > 0 && (
                     <div style={{ marginTop: '12px', fontSize: '12px', color: 'var(--text-secondary)' }}>
                         <span style={{ fontWeight: 500 }}>{t('agent.settings.perm.currentAccess', 'Current access')}:</span>{' '}
                         {permData.scope_names.map((s: any) => s.name).join(', ')}
