@@ -380,6 +380,12 @@
       "dragOrClick": "Drag files here or click to upload",
       "noFiles": "No files",
       "delete": "Delete",
+      "batchDelete": "Delete selected",
+      "selectAll": "Select all",
+      "clearSelection": "Clear selection",
+      "selectedCount": "{{count}} selected",
+      "confirmBatchDelete": "Delete {{count}} selected item(s)? This cannot be undone.",
+      "batchDeletePartialFail": "Some items failed to delete: {{names}}",
       "save": "Save",
       "edit": "Edit",
       "cancel": "Cancel"

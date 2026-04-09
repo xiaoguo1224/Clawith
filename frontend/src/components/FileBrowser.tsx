@@ -26,6 +26,11 @@ export interface FileBrowserApi {
     downloadUrl?: (path: string) => string;
 }
 
+type FileDeleteConfirm =
+    | null
+    | { kind: 'single'; path: string; name: string }
+    | { kind: 'batch'; paths: string[] };
+
 export interface FileBrowserProps {
     api: FileBrowserApi;
     rootPath?: string;
@@ -97,7 +102,8 @@ export default function FileBrowser({
     const [editContent, setEditContent] = useState('');
     const [saving, setSaving] = useState(false);
     const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
-    const [deleteTarget, setDeleteTarget] = useState<{ path: string; name: string } | null>(null);
+    const [deleteConfirm, setDeleteConfirm] = useState<FileDeleteConfirm>(null);
+    const [selectedPaths, setSelectedPaths] = useState<string[]>([]);
     const [promptModal, setPromptModal] = useState<{ title: string; placeholder: string; action: string } | null>(null);
     const [promptValue, setPromptValue] = useState('');
     const [uploadProgress, setUploadProgress] = useState<{ fileName: string; percent: number } | null>(null);
@@ -148,6 +154,10 @@ export default function FileBrowser({
 
     useEffect(() => { reload(); }, [reload]);
 
+    useEffect(() => {
+        setSelectedPaths([]);
+    }, [currentPath]);
+
     // ─── Load file content when viewing ───────────────
 
     useEffect(() => {
@@ -175,22 +185,61 @@ export default function FileBrowser({
         setSaving(false);
     };
 
+    const resolveItemPath = (f: FileItem) => f.path || (currentPath ? `${currentPath}/${f.name}` : f.name);
+
     const handleDelete = async () => {
-        if (!deleteTarget) return;
-        try {
-            await api.delete(deleteTarget.path);
-            setDeleteTarget(null);
-            if (viewing === deleteTarget.path) {
-                setViewing(null);
-                setEditing(false);
+        if (!deleteConfirm) return;
+        if (deleteConfirm.kind === 'single') {
+            try {
+                await api.delete(deleteConfirm.path);
+                setDeleteConfirm(null);
+                if (viewing === deleteConfirm.path) {
+                    setViewing(null);
+                    setEditing(false);
+                }
+                reload();
+                onRefresh?.();
+                showToast('Deleted');
+            } catch (err: any) {
+                showToast('Delete failed: ' + (err.message || ''), 'error');
             }
-            reload();
-            onRefresh?.();
+            return;
+        }
+        const pathsSnap = [...deleteConfirm.paths];
+        const sorted = [...pathsSnap].sort((a, b) => b.length - a.length);
+        const failed: string[] = [];
+        for (const p of sorted) {
+            try {
+                await api.delete(p);
+            } catch {
+                failed.push(p.split('/').pop() || p);
+            }
+        }
+        setDeleteConfirm(null);
+        setSelectedPaths([]);
+        if (viewing && pathsSnap.includes(viewing)) {
+            setViewing(null);
+            setEditing(false);
+        }
+        reload();
+        onRefresh?.();
+        if (failed.length === 0) {
             showToast('Deleted');
-        } catch (err: any) {
-            showToast('Delete failed: ' + (err.message || ''), 'error');
+        } else {
+            showToast(t('agent.workspace.batchDeletePartialFail', { names: failed.join(', ') }), 'error');
         }
     };
+
+    const toggleSelected = (path: string) => {
+        setSelectedPaths((prev) => (prev.includes(path) ? prev.filter((p) => p !== path) : [...prev, path]));
+    };
+
+    const selectAllVisible = () => {
+        if (files.length === 0) return;
+        setSelectedPaths(files.map(resolveItemPath));
+    };
+
+    const clearFileSelection = () => setSelectedPaths([]);
 
     const handleUpload = () => {
         const input = document.createElement('input');
@@ -300,15 +349,33 @@ export default function FileBrowser({
     // ─── Delete confirmation modal ────────────────────
 
     const renderDeleteModal = () => {
-        if (!deleteTarget) return null;
+        if (!deleteConfirm) return null;
+        const isBatch = deleteConfirm.kind === 'batch';
+        const titleText = isBatch
+            ? t('agent.workspace.confirmBatchDelete', { count: deleteConfirm.paths.length })
+            : `Delete "${deleteConfirm.name}"?`;
         return (
             <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10000 }}
-                onClick={(e) => { if (e.target === e.currentTarget) setDeleteTarget(null); }}>
-                <div style={{ background: 'var(--bg-primary)', borderRadius: '12px', padding: '24px', width: '380px', border: '1px solid var(--border-subtle)', boxShadow: '0 20px 60px rgba(0,0,0,0.4)' }}>
+                onClick={(e) => { if (e.target === e.currentTarget) setDeleteConfirm(null); }}>
+                <div style={{ background: 'var(--bg-primary)', borderRadius: '12px', padding: '24px', width: isBatch ? '420px' : '380px', maxWidth: '96vw', border: '1px solid var(--border-subtle)', boxShadow: '0 20px 60px rgba(0,0,0,0.4)' }}>
                     <h4 style={{ marginBottom: '12px', fontSize: '15px' }}>{t('common.delete')}</h4>
-                    <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '20px' }}>Delete "{deleteTarget.name}"?</p>
+                    {isBatch ? (
+                        <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '16px', maxHeight: '200px', overflowY: 'auto', lineHeight: 1.5 }}>
+                            <p style={{ margin: '0 0 8px' }}>{titleText}</p>
+                            <ul style={{ margin: 0, paddingLeft: '18px' }}>
+                                {deleteConfirm.paths.slice(0, 30).map((p) => (
+                                    <li key={p} style={{ fontFamily: 'var(--font-mono)', fontSize: '12px' }}>{p.split('/').pop() || p}</li>
+                                ))}
+                            </ul>
+                            {deleteConfirm.paths.length > 30 && (
+                                <p style={{ margin: '8px 0 0', fontSize: '12px', color: 'var(--text-tertiary)' }}>… +{deleteConfirm.paths.length - 30} {t('common.more', 'more')}</p>
+                            )}
+                        </div>
+                    ) : (
+                        <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '20px' }}>{titleText}</p>
+                    )}
                     <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
-                        <button className="btn btn-secondary" onClick={() => setDeleteTarget(null)}>{t('common.cancel')}</button>
+                        <button className="btn btn-secondary" onClick={() => setDeleteConfirm(null)}>{t('common.cancel')}</button>
                         <button className="btn btn-danger" onClick={handleDelete}>{t('common.delete')}</button>
                     </div>
                 </div>
@@ -418,7 +485,7 @@ export default function FileBrowser({
                     )}
                     {canDelete && (
                         <button className="btn btn-danger" style={{ padding: '4px 10px', fontSize: '12px' }}
-                            onClick={() => setDeleteTarget({ path: viewing, name: viewing.split('/').pop() || viewing })}>×</button>
+                            onClick={() => setDeleteConfirm({ kind: 'single', path: viewing, name: viewing.split('/').pop() || viewing })}>×</button>
                     )}
                 </div>
                 <div className="card">
@@ -473,7 +540,31 @@ export default function FileBrowser({
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', flexWrap: 'wrap', gap: '8px' }}>
                 {title && <h3 style={{ margin: 0 }}>{title}</h3>}
                 {renderBreadcrumbs()}
-                <div style={{ display: 'flex', gap: '6px', marginLeft: 'auto' }}>
+                <div style={{ display: 'flex', gap: '6px', marginLeft: 'auto', flexWrap: 'wrap', alignItems: 'center' }}>
+                    {canDelete && files.length > 0 && (
+                        <>
+                            <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: 'var(--text-secondary)', cursor: 'pointer', userSelect: 'none' }}>
+                                <input
+                                    type="checkbox"
+                                    checked={files.length > 0 && selectedPaths.length === files.length}
+                                    ref={(el) => {
+                                        if (el) el.indeterminate = selectedPaths.length > 0 && selectedPaths.length < files.length;
+                                    }}
+                                    onChange={(e) => { if (e.target.checked) selectAllVisible(); else clearFileSelection(); }}
+                                />
+                                {t('agent.workspace.selectAll')}
+                            </label>
+                            {selectedPaths.length > 0 && (
+                                <>
+                                    <span style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>{t('agent.workspace.selectedCount', { count: selectedPaths.length })}</span>
+                                    <button type="button" className="btn btn-secondary" style={{ fontSize: '12px' }} onClick={clearFileSelection}>{t('agent.workspace.clearSelection')}</button>
+                                    <button type="button" className="btn btn-danger" style={{ fontSize: '12px' }} onClick={() => setDeleteConfirm({ kind: 'batch', paths: [...selectedPaths] })}>
+                                        {t('agent.workspace.batchDelete')}
+                                    </button>
+                                </>
+                            )}
+                        </>
+                    )}
                     {upload && api.upload && (
                         <button className="btn btn-secondary" style={{ fontSize: '12px' }} onClick={handleUpload}>⬆ Upload</button>
                     )}
@@ -531,7 +622,10 @@ export default function FileBrowser({
                             <span style={{ fontSize: '13px' }}>↩ ..</span>
                         </div>
                     )}
-                    {files.map((f) => (
+                    {files.map((f) => {
+                        const itemPath = resolveItemPath(f);
+                        const isSel = selectedPaths.includes(itemPath);
+                        return (
                         <div key={f.name} className="card"
                             style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', cursor: 'pointer' }}
                             onClick={() => {
@@ -540,18 +634,27 @@ export default function FileBrowser({
                                     setViewing(null);
                                     setEditing(false);
                                 } else if (!f.is_dir) {
-                                    setViewing(f.path || `${currentPath}/${f.name}`);
+                                    setViewing(itemPath);
                                     setEditing(false);
                                 }
                             }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                {canDelete && (
+                                    <input
+                                        type="checkbox"
+                                        checked={isSel}
+                                        onClick={(e) => e.stopPropagation()}
+                                        onChange={() => toggleSelected(itemPath)}
+                                        aria-label={t('agent.workspace.selectAll')}
+                                    />
+                                )}
                                 <span style={{ fontSize: '13px', color: 'var(--text-tertiary)' }}>{f.is_dir ? '/' : '·'}</span>
                                 <span style={{ fontWeight: 500, fontSize: '13px' }}>{fileFilter?.includes('.md') ? f.name.replace('.md', '') : f.name}</span>
                             </div>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                 {f.size != null && <span style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>{(f.size / 1024).toFixed(1)} KB</span>}
                                 {!f.is_dir && api.downloadUrl && (
-                                    <a href={api.downloadUrl(f.path || `${currentPath}/${f.name}`)} download
+                                    <a href={api.downloadUrl(itemPath)} download
                                         onClick={(e) => e.stopPropagation()}
                                         title={t('common.download', 'Download')}
                                         style={{ padding: '2px 6px', fontSize: '11px', color: 'var(--accent-primary)', textDecoration: 'none', borderRadius: '4px' }}>
@@ -560,13 +663,13 @@ export default function FileBrowser({
                                 )}
                                 {canDelete && (
                                     <button className="btn btn-ghost" style={{ padding: '2px 6px', fontSize: '11px', color: 'var(--error)' }}
-                                        onClick={(e) => { e.stopPropagation(); setDeleteTarget({ path: f.path || `${currentPath}/${f.name}`, name: f.name }); }}>
+                                        onClick={(e) => { e.stopPropagation(); setDeleteConfirm({ kind: 'single', path: itemPath, name: f.name }); }}>
                                         ×
                                     </button>
                                 )}
                             </div>
                         </div>
-                    ))}
+                    );})}
                 </div>
             )}
 
