@@ -109,6 +109,63 @@ async def get_chat_history(
     return out
 
 
+def apply_vision_markers_to_llm_messages(api_messages, supports_vision: bool) -> None:
+    """Convert [image_data:data:image/...;base64,...] in user/tool messages to multimodal parts.
+
+    Must run after tool results are appended: new tool messages are not in the initial pass.
+    Mutates api_messages in place.
+    """
+    from app.services.llm_utils import LLMMessage
+
+    if supports_vision:
+        import re as _re_v
+
+        for i, msg in enumerate(api_messages):
+            if msg.role not in ("user", "tool") or not msg.content or not isinstance(msg.content, str):
+                continue
+            content_str = msg.content
+            pattern = r'\[image_data:(data:image/[^;]+;base64,[A-Za-z0-9+/=]+)\]'
+            images = _re_v.findall(pattern, content_str)
+            if not images:
+                continue
+            text = _re_v.sub(pattern, "", content_str).strip()
+            parts = []
+            for img_url in images:
+                parts.append({"type": "image_url", "image_url": {"url": img_url}})
+            if text:
+                parts.append({"type": "text", "text": text})
+            api_messages[i] = LLMMessage(
+                role=msg.role,
+                content=parts,  # type: ignore[arg-type]
+                tool_call_id=msg.tool_call_id,
+                tool_calls=msg.tool_calls,
+                reasoning_content=msg.reasoning_content,
+                reasoning_signature=msg.reasoning_signature,
+                dynamic_content=msg.dynamic_content,
+            )
+    else:
+        import re as _re_strip
+
+        _img_pattern = r"\[image_data:data:image/[^;]+;base64,[A-Za-z0-9+/=]+\]"
+        for i, msg in enumerate(api_messages):
+            if msg.role not in ("user", "tool") or not isinstance(msg.content, str):
+                continue
+            if "[image_data:" in msg.content:
+                _n_imgs = len(_re_strip.findall(_img_pattern, msg.content))
+                cleaned = _re_strip.sub(_img_pattern, "", msg.content).strip()
+                if _n_imgs > 0:
+                    cleaned += f"\n[含 {_n_imgs} 张图片，但当前模型不支持视觉，无法查看图片内容]"
+                api_messages[i] = LLMMessage(
+                    role=msg.role,
+                    content=cleaned,
+                    tool_call_id=msg.tool_call_id,
+                    tool_calls=msg.tool_calls,
+                    reasoning_content=msg.reasoning_content,
+                    reasoning_signature=msg.reasoning_signature,
+                    dynamic_content=msg.dynamic_content,
+                )
+
+
 async def call_llm(
     model: LLMModel,
     messages: list[dict],
@@ -178,48 +235,7 @@ async def call_llm(
             tool_call_id=msg.get("tool_call_id"),
         ))
 
-    # ── Vision format conversion ──
-    # If the model supports vision, convert image markers in user messages
-    # to OpenAI Vision API format: content becomes an array of parts.
-    if supports_vision:
-        import re as _re_v
-        for i, msg in enumerate(api_messages):
-            if msg.role != "user" or not msg.content or not isinstance(msg.content, str):
-                continue
-            content_str = msg.content
-            # Find [image_data:data:image/...;base64,...] markers
-            pattern = r'\[image_data:(data:image/[^;]+;base64,[A-Za-z0-9+/=]+)\]'
-            images = _re_v.findall(pattern, content_str)
-            if not images:
-                continue
-            # Build content array
-            text = _re_v.sub(pattern, '', content_str).strip()
-            parts = []
-            for img_url in images:
-                parts.append({"type": "image_url", "image_url": {"url": img_url}})
-            if text:
-                parts.append({"type": "text", "text": text})
-            # Replace the message content with the array format
-            api_messages[i] = LLMMessage(
-                role=msg.role,
-                content=parts,  # type: ignore  # This is valid for vision models
-            )
-    else:
-        # Strip base64 image markers for non-vision models to avoid wasting tokens
-        import re as _re_strip
-        _img_pattern = r'\[image_data:data:image/[^;]+;base64,[A-Za-z0-9+/=]+\]'
-        for i, msg in enumerate(api_messages):
-            if msg.role != "user" or not isinstance(msg.content, str):
-                continue
-            if "[image_data:" in msg.content:
-                _n_imgs = len(_re_strip.findall(_img_pattern, msg.content))
-                cleaned = _re_strip.sub(_img_pattern, '', msg.content).strip()
-                if _n_imgs > 0:
-                    cleaned += f"\n[用户发送了 {_n_imgs} 张图片，但当前模型不支持视觉，无法查看图片内容]"
-                api_messages[i] = LLMMessage(
-                    role=msg.role,
-                    content=cleaned,
-                )
+    apply_vision_markers_to_llm_messages(api_messages, supports_vision)
 
     # Create the unified LLM client
     try:
@@ -405,6 +421,9 @@ async def call_llm(
                 tool_call_id=tc["id"],
                 content=tool_content,
             ))
+
+        # read_file / screenshot tool results may contain [image_data:...]; convert before next stream().
+        apply_vision_markers_to_llm_messages(api_messages, supports_vision)
 
     # Record tokens even on "too many rounds" exit
     if agent_id and _accumulated_tokens > 0:

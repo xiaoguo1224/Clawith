@@ -23,6 +23,16 @@ from app.services.sso_service import sso_service
 from loguru import logger
 
 
+def _normalize_optional_identifier(value: str | None) -> str | None:
+    """Blank strings -> None for unique columns (PostgreSQL allows many NULLs, only one '')."""
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        return None
+    s = value.strip()
+    return s if s else None
+
+
 class RegistrationService:
     """Service for handling user registration flows."""
 
@@ -112,6 +122,10 @@ class RegistrationService:
         takeover when two users share the same email prefix (e.g. alice@gmail.com
         and alice@yahoo.com both produce username 'alice').
         """
+        email = _normalize_optional_identifier(email)
+        phone = _normalize_optional_identifier(phone)
+        username = _normalize_optional_identifier(username)
+
         identity = None
 
         # Match by email (primary ownership claim)
@@ -258,8 +272,8 @@ class RegistrationService:
         Returns:
             Tuple of (user, is_new)
         """
-        # Try to detect tenant from email
-        email = user_info.get("email", "")
+        # Try to detect tenant from email (WeCom etc. may send ""; must not store '' — UNIQUE violation)
+        email = _normalize_optional_identifier(user_info.get("email"))
         tenant = None
         tenant_id = None
         if email:

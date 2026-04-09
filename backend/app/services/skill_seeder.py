@@ -565,6 +565,7 @@ Plan would be:
         "description": "Use the primary LLM's built-in vision for images in chat (e.g. Kimi 2.5, GPT-4o). No MCP or separate vision APIs.",
         "category": "analysis",
         "icon": "👁️",
+        "is_default": True,
         "folder_name": "visual-recognition",
         "files": [],  # populated at runtime from agent_template/skills/VISUAL_RECOGNITION.md
     },

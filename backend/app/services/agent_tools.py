@@ -191,7 +191,7 @@ AGENT_TOOLS = [
         "type": "function",
         "function": {
             "name": "read_file",
-            "description": "Read file contents from the workspace. Can read tasks.json for tasks, soul.md for personality, memory/memory.md for memory, skills/ for skill files, and enterprise_info/ for shared company info. Use offset and limit for reading large files in chunks.",
+            "description": "Read file contents from the workspace. For raster images (.png/.jpg/.webp/.gif/.bmp), returns a vision payload the model can see (not raw binary text). For text/code/markdown/JSON, returns line-numbered content. Use offset and limit for large text files. Can read tasks.json, soul.md, memory/, skills/, enterprise_info/.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -3163,6 +3163,39 @@ def _read_file(ws: Path, rel_path: str, tenant_id: str | None = None, offset: in
 
     if not file_path.exists():
         return f"File not found: {rel_path}"
+
+    # Raster images: embed as vision markers (call_llm converts for multimodal APIs).
+    # read_text() on binary JPEG/PNG produces mojibake and breaks vision.
+    _image_ext_mime = {
+        ".jpg": "image/jpeg",
+        ".jpeg": "image/jpeg",
+        ".png": "image/png",
+        ".gif": "image/gif",
+        ".webp": "image/webp",
+        ".bmp": "image/bmp",
+    }
+    ext = file_path.suffix.lower()
+    if ext in _image_ext_mime:
+        import base64
+
+        max_img_bytes = 6 * 1024 * 1024  # keep tool results bounded
+        try:
+            raw = file_path.read_bytes()
+        except OSError as e:
+            return f"Read failed: {e}"
+        if len(raw) > max_img_bytes:
+            return (
+                f"Image too large ({len(raw) // (1024 * 1024)} MB) for read_file inline vision (max 6 MB). "
+                f"Ask the user to compress or attach a smaller image in chat."
+            )
+        mime = _image_ext_mime[ext]
+        b64 = base64.standard_b64encode(raw).decode("ascii")
+        data_url = f"data:{mime};base64,{b64}"
+        return (
+            f"📷 Image from workspace `{rel_path}` ({mime}, {len(raw)} bytes). "
+            f"Analyze or describe the image below:\n\n"
+            f"[image_data:{data_url}]"
+        )
 
     try:
         content = file_path.read_text(encoding="utf-8", errors="replace")

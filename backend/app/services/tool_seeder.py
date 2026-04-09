@@ -26,7 +26,7 @@ BUILTIN_TOOLS = [
     {
         "name": "read_file",
         "display_name": "Read File",
-        "description": "Read file contents from the workspace. Can read tasks.json, soul.md, memory/memory.md, skills/, and enterprise_info/. Use offset and limit for reading large files in chunks.",
+        "description": "Read workspace files. Raster images (.png/.jpg/.webp/.gif/.bmp) return a vision payload for multimodal models; text files return line-numbered content. Supports tasks.json, soul.md, memory/, skills/, enterprise_info/. Use offset/limit for large text files.",
         "category": "file",
         "icon": "📄",
         "is_default": True,

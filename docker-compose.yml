@@ -31,10 +31,13 @@ services:
     build:
       context: ./backend
       args:
-        CLAWITH_PIP_INDEX_URL: ${CLAWITH_PIP_INDEX_URL:-}
-        CLAWITH_PIP_TRUSTED_HOST: ${CLAWITH_PIP_TRUSTED_HOST:-}
-        # Fallback when the primary mirror lacks wheels (e.g. newer scipy/polars). Example: https://pypi.org/simple
-        CLAWITH_PIP_EXTRA_INDEX_URL: ${CLAWITH_PIP_EXTRA_INDEX_URL:-}
+        # Default: 阿里云 PyPI（与 Dockerfile 内 APT 换源一致）；可用环境变量覆盖为清华等
+        CLAWITH_PIP_INDEX_URL: ${CLAWITH_PIP_INDEX_URL:-https://mirrors.aliyun.com/pypi/simple/}
+        CLAWITH_PIP_TRUSTED_HOST: ${CLAWITH_PIP_TRUSTED_HOST:-mirrors.aliyun.com}
+        # 主源缺包或 wheel 滞后时可兜底；设为空则完全走国内主源
+        CLAWITH_PIP_EXTRA_INDEX_URL: ${CLAWITH_PIP_EXTRA_INDEX_URL:-https://pypi.org/simple}
+        # 1 = Debian apt 换 mirrors.aliyun.com；0 = 官方源
+        CLAWITH_APT_MIRROR: ${CLAWITH_APT_MIRROR:-1}
     restart: unless-stopped
     command: ["/bin/bash", "/app/entrypoint.sh"]
     environment:
