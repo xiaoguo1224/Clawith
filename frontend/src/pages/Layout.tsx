@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '../stores';
 import { agentApi, tenantApi, authApi } from '../services/api';
+import type { User } from '../types';
 
 import {
     IconHome,
@@ -82,6 +83,170 @@ const getAgentBadgeStatus = (agent: any): string | null => {
 /* ────── Account Settings Modal ────── */
 function normalizeAccountPhone(raw: string): string {
     return raw.replace(/[\s\-+]/g, '').trim();
+}
+
+/** Shown only when `user.pending_initial_setup` (new account without password on the server). */
+function InitialAccountSetupModal({ user, onClose, isChinese }: { user: User; onClose: () => void; isChinese: boolean }) {
+    const { setUser } = useAuthStore();
+    const [username, setUsername] = useState((user.username ?? '').trim());
+    const [email, setEmail] = useState((user.email ?? '').trim());
+    const [primaryMobile, setPrimaryMobile] = useState((user.primary_mobile as string) || '');
+    const [password, setPassword] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
+    const [saving, setSaving] = useState(false);
+    const [msg, setMsg] = useState('');
+    const [msgType, setMsgType] = useState<'success' | 'error'>('success');
+
+    const showMsg = (text: string, type: 'success' | 'error' = 'success') => {
+        setMsg(text);
+        setMsgType(type);
+        setTimeout(() => setMsg(''), 5000);
+    };
+
+    const handleSave = async () => {
+        const nextEmail = email.trim();
+        const nextUser = username.trim();
+        const nextPhone = normalizeAccountPhone(primaryMobile);
+        if (!nextEmail || !nextPhone || !nextUser) {
+            showMsg(isChinese ? '请填写邮箱、手机号和用户名' : 'Fill in email, mobile, and username', 'error');
+            return;
+        }
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(nextEmail)) {
+            showMsg(isChinese ? '邮箱格式不正确' : 'Invalid email format', 'error');
+            return;
+        }
+        if (!password || password.length < 6) {
+            showMsg(isChinese ? '密码至少 6 个字符' : 'Password must be at least 6 characters', 'error');
+            return;
+        }
+        if (password !== confirmPassword) {
+            showMsg(isChinese ? '两次密码不一致' : 'Passwords do not match', 'error');
+            return;
+        }
+        setSaving(true);
+        try {
+            const updated = await authApi.completeInitialSetup({
+                email: nextEmail,
+                username: nextUser,
+                primary_mobile: nextPhone,
+                password,
+            });
+            setUser(updated);
+            onClose();
+        } catch (e: unknown) {
+            const m = e instanceof Error ? e.message : 'Failed';
+            showMsg(m, 'error');
+        }
+        setSaving(false);
+    };
+
+    const inputStyle = { width: '100%', fontSize: '13px' };
+    const labelStyle = { display: 'block' as const, fontSize: '12px', fontWeight: 500, marginBottom: '4px', color: 'var(--text-secondary)' };
+
+    return (
+        <div
+            style={{
+                position: 'fixed',
+                inset: 0,
+                zIndex: 10002,
+                background: 'rgba(0,0,0,0.55)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+            }}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="initial-setup-title"
+        >
+            <div
+                style={{
+                    background: 'var(--bg-primary)',
+                    borderRadius: '12px',
+                    border: '1px solid var(--border-subtle)',
+                    width: '420px',
+                    maxWidth: 'calc(100vw - 32px)',
+                    maxHeight: '90vh',
+                    overflow: 'auto',
+                    padding: '24px',
+                    boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
+                }}
+                onClick={(e) => e.stopPropagation()}
+            >
+                <h3 id="initial-setup-title" style={{ margin: '0 0 8px' }}>
+                    {isChinese ? '完善新账户' : 'Set up your new account'}
+                </h3>
+                <p style={{ margin: '0 0 16px', fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                    {isChinese
+                        ? '请设置登录邮箱、手机号、用户名和密码，完成后即可正常使用系统。'
+                        : 'Set your email, mobile, username, and password to finish creating your account.'}
+                </p>
+                {msg && (
+                    <div
+                        style={{
+                            padding: '8px 12px',
+                            borderRadius: '6px',
+                            fontSize: '12px',
+                            marginBottom: '16px',
+                            background: msgType === 'success' ? 'rgba(0,180,120,0.12)' : 'rgba(255,80,80,0.12)',
+                            color: msgType === 'success' ? 'var(--success)' : 'var(--error)',
+                        }}
+                    >
+                        {msg}
+                    </div>
+                )}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '20px' }}>
+                    <div>
+                        <label style={labelStyle}>{isChinese ? '用户名' : 'Username'}</label>
+                        <input className="form-input" value={username} onChange={(e) => setUsername(e.target.value)} style={inputStyle} autoComplete="username" />
+                    </div>
+                    <div>
+                        <label style={labelStyle}>{isChinese ? '邮箱' : 'Email'}</label>
+                        <input className="form-input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} style={inputStyle} autoComplete="email" />
+                    </div>
+                    <div>
+                        <label style={labelStyle}>{isChinese ? '手机号（用于登录）' : 'Mobile (for sign-in)'}</label>
+                        <input
+                            className="form-input"
+                            type="tel"
+                            inputMode="tel"
+                            value={primaryMobile}
+                            onChange={(e) => setPrimaryMobile(e.target.value)}
+                            style={inputStyle}
+                            autoComplete="tel"
+                        />
+                    </div>
+                    <div>
+                        <label style={labelStyle}>{isChinese ? '密码' : 'Password'}</label>
+                        <input
+                            className="form-input"
+                            type="password"
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            style={inputStyle}
+                            autoComplete="new-password"
+                            placeholder={isChinese ? '至少 6 个字符' : 'At least 6 characters'}
+                        />
+                    </div>
+                    <div>
+                        <label style={labelStyle}>{isChinese ? '确认密码' : 'Confirm password'}</label>
+                        <input
+                            className="form-input"
+                            type="password"
+                            value={confirmPassword}
+                            onChange={(e) => setConfirmPassword(e.target.value)}
+                            style={inputStyle}
+                            autoComplete="new-password"
+                        />
+                    </div>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                    <button type="button" className="btn btn-primary" onClick={handleSave} disabled={saving} style={{ padding: '6px 16px', fontSize: '12px' }}>
+                        {saving ? '...' : isChinese ? '完成并继续' : 'Finish'}
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
 }
 
 function AccountSettingsModal({ user, onClose, isChinese }: { user: any; onClose: () => void; isChinese: boolean }) {
@@ -266,6 +431,7 @@ export default function Layout() {
     const queryClient = useQueryClient();
     const isChinese = i18n.language?.startsWith('zh');
     const [showAccountSettings, setShowAccountSettings] = useState(false);
+    const [showInitialAccountSetup, setShowInitialAccountSetup] = useState(false);
     const [showAccountMenu, setShowAccountMenu] = useState(false);
     const [showLanguageSubmenu, setShowLanguageSubmenu] = useState(false);
     const [langSubmenuPos, setLangSubmenuPos] = useState({ top: 0, left: 0 });
@@ -418,6 +584,14 @@ export default function Layout() {
         document.documentElement.setAttribute('data-theme', theme);
         localStorage.setItem('theme', theme);
     }, [theme]);
+
+    useEffect(() => {
+        if (!user?.id) {
+            setShowInitialAccountSetup(false);
+            return;
+        }
+        setShowInitialAccountSetup(!!user.pending_initial_setup);
+    }, [user]);
 
     const toggleTheme = () => setTheme(prev => prev === 'dark' ? 'light' : 'dark');
 
@@ -1051,6 +1225,14 @@ export default function Layout() {
             <main className="main-content">
                 <Outlet />
             </main>
+
+            {showInitialAccountSetup && user && (
+                <InitialAccountSetupModal
+                    user={user}
+                    onClose={() => setShowInitialAccountSetup(false)}
+                    isChinese={!!isChinese}
+                />
+            )}
 
             {showAccountSettings && (
                 <AccountSettingsModal

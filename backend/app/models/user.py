@@ -79,6 +79,9 @@ class User(Base):
 
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
 
+    """True until the user completes POST /auth/complete-initial-setup (passwordless new accounts)."""
+    pending_initial_setup: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+
     registration_source: Mapped[str | None] = mapped_column(String(50), default="web")
 
     created_at: Mapped[datetime] = mapped_column(

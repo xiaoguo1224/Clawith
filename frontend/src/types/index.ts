@@ -2,8 +2,9 @@
 
 export interface User {
     id: string;
-    username: string;
-    email: string;
+    /** May be null for SSO until the user sets a login username */
+    username?: string | null;
+    email?: string | null;
     /** Same as Identity.phone; use with password on /auth/login */
     primary_mobile?: string | null;
     display_name: string;
@@ -15,6 +16,8 @@ export interface User {
     is_active: boolean;
     email_verified?: boolean;
     created_at: string;
+    /** Backend: true until POST /auth/complete-initial-setup (passwordless new accounts). */
+    pending_initial_setup?: boolean;
 }
 
 export interface Agent {

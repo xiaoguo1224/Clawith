@@ -251,6 +251,7 @@ class BaseAuthProvider(ABC):
             registration_source=self.provider_type,
             tenant_id=tenant_id,
             is_active=True,
+            pending_initial_setup=not bool(identity.password_hash),
         )
 
 

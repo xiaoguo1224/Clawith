@@ -154,8 +154,18 @@ class UserOut(BaseModel):
     is_active: bool
     email_verified: bool = True
     created_at: datetime
+    pending_initial_setup: bool = False
 
     model_config = {"from_attributes": True}
+
+
+class InitialAccountSetupRequest(BaseModel):
+    """One-shot credential + contact setup for new accounts without a password."""
+
+    email: EmailStr
+    username: str = Field(min_length=1, max_length=100)
+    primary_mobile: str = Field(min_length=1, max_length=50)
+    password: str = Field(min_length=6, max_length=128)
 
 
 class IdentityProviderOut(BaseModel):

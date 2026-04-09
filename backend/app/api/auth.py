@@ -9,7 +9,7 @@ from typing import Any
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request, status
 from fastapi.responses import HTMLResponse
 from loguru import logger
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.security import create_access_token, get_authenticated_user, get_current_user, hash_password, verify_password
@@ -27,6 +27,7 @@ from app.schemas.schemas import (
     UserOut,
     UserRegister,
     UserUpdate,
+    InitialAccountSetupRequest,
     VerifyEmailRequest,
     ResendVerificationRequest,
     NeedsVerificationResponse,
@@ -728,6 +729,86 @@ async def update_me(
         )
 
     return UserOut.model_validate(current_user)
+
+
+@router.post("/complete-initial-setup", response_model=UserOut)
+async def complete_initial_setup(
+    data: InitialAccountSetupRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Set email, username, mobile, and password for accounts created without credentials."""
+    import re
+
+    if not current_user.pending_initial_setup:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Initial setup is not required")
+
+    res = await db.execute(
+        select(User).where(User.id == current_user.id).options(selectinload(User.identity))
+    )
+    user = res.scalar_one()
+    identity = user.identity
+    if not identity:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No identity linked")
+
+    if identity.password_hash is not None:
+        await db.execute(
+            update(User)
+            .where(User.identity_id == identity.id)
+            .values(pending_initial_setup=False)
+        )
+        await db.commit()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Password already set; use account settings to update your profile",
+        )
+
+    normalized_phone = re.sub(r"[\s\-\+]", "", data.primary_mobile)
+    if not normalized_phone:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid mobile number")
+
+    email_str = str(data.email)
+
+    uname_row = await db.execute(
+        select(Identity).where(Identity.username == data.username, Identity.id != identity.id)
+    )
+    if uname_row.scalar_one_or_none():
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Username already taken")
+
+    email_row = await db.execute(
+        select(Identity).where(Identity.email == email_str, Identity.id != identity.id)
+    )
+    if email_row.scalar_one_or_none():
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered")
+
+    phone_row = await db.execute(
+        select(Identity).where(Identity.phone == normalized_phone, Identity.id != identity.id)
+    )
+    if phone_row.scalar_one_or_none():
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Mobile already registered")
+
+    identity.username = data.username
+    identity.email = email_str
+    identity.phone = normalized_phone
+    identity.password_hash = hash_password(data.password)
+
+    await db.execute(
+        update(User).where(User.identity_id == identity.id).values(pending_initial_setup=False)
+    )
+
+    await db.flush()
+    from app.services.registration_service import registration_service
+
+    await registration_service.sync_org_member_contact_from_user(
+        db, user, sync_email=True, sync_phone=True
+    )
+    await db.commit()
+
+    res2 = await db.execute(
+        select(User).where(User.id == user.id).options(selectinload(User.identity))
+    )
+    fresh = res2.scalar_one()
+    return UserOut.model_validate(fresh)
 
 
 @router.get("/my-tenants", response_model=list[TenantChoice])

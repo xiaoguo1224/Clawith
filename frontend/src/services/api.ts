@@ -172,6 +172,9 @@ export const authApi = {
     updateMe: (data: Partial<User>) =>
         request<User>('/auth/me', { method: 'PATCH', body: JSON.stringify(data) }),
 
+    completeInitialSetup: (data: { email: string; username: string; primary_mobile: string; password: string }) =>
+        request<User>('/auth/complete-initial-setup', { method: 'POST', body: JSON.stringify(data) }),
+
     verifyEmail: (token: string) =>
         request<{ ok: boolean; message: string; access_token: string; user: User; needs_company_setup: boolean }>('/auth/verify-email', { method: 'POST', body: JSON.stringify({ token }) }),
 

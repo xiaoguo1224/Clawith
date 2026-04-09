@@ -229,6 +229,7 @@ class RegistrationService:
             role=role,
             registration_source=registration_source,
             is_active=is_active or identity.is_platform_admin,
+            pending_initial_setup=not bool(identity.password_hash),
         )
 
         db.add(user)
