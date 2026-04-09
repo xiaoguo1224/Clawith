@@ -10,18 +10,26 @@ depends_on = None
 
 
 def upgrade() -> None:
-    op.add_column(
-        "users",
-        sa.Column(
-            "pending_initial_setup",
-            sa.Boolean(),
-            nullable=False,
-            server_default=sa.text("false"),
-        ),
-    )
-    # New rows default false at DB level; ORM sets true in code when identity has no password.
-    op.alter_column("users", "pending_initial_setup", server_default=None)
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
+    columns = {column["name"] for column in inspector.get_columns("users")}
+    if "pending_initial_setup" not in columns:
+        op.add_column(
+            "users",
+            sa.Column(
+                "pending_initial_setup",
+                sa.Boolean(),
+                nullable=False,
+                server_default=sa.text("false"),
+            ),
+        )
+        # New rows default false at DB level; ORM sets true in code when identity has no password.
+        op.alter_column("users", "pending_initial_setup", server_default=None)
 
 
 def downgrade() -> None:
-    op.drop_column("users", "pending_initial_setup")
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
+    columns = {column["name"] for column in inspector.get_columns("users")}
+    if "pending_initial_setup" in columns:
+        op.drop_column("users", "pending_initial_setup")

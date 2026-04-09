@@ -30,12 +30,50 @@ def upgrade() -> None:
     """))
 
     # 2. Backfill: create Participant for every existing User
-    conn.execute(sa.text("""
-        INSERT INTO participants (id, type, ref_id, display_name, avatar_url)
-        SELECT gen_random_uuid(), 'user', id, COALESCE(display_name, username), avatar_url
-        FROM users
-        ON CONFLICT DO NOTHING
-    """))
+    # Older schemas kept username on users; post–user-refactor it lives on identities.
+    has_users_username = conn.execute(sa.text("""
+        SELECT EXISTS (
+            SELECT 1 FROM information_schema.columns
+            WHERE table_schema = 'public' AND table_name = 'users' AND column_name = 'username'
+        )
+    """)).scalar()
+    has_users_identity = conn.execute(sa.text("""
+        SELECT EXISTS (
+            SELECT 1 FROM information_schema.columns
+            WHERE table_schema = 'public' AND table_name = 'users' AND column_name = 'identity_id'
+        )
+    """)).scalar()
+    has_identities = conn.execute(sa.text("""
+        SELECT EXISTS (
+            SELECT 1 FROM information_schema.tables
+            WHERE table_schema = 'public' AND table_name = 'identities'
+        )
+    """)).scalar()
+
+    if has_users_username:
+        conn.execute(sa.text("""
+            INSERT INTO participants (id, type, ref_id, display_name, avatar_url)
+            SELECT gen_random_uuid(), 'user', id, COALESCE(display_name, username), avatar_url
+            FROM users
+            ON CONFLICT DO NOTHING
+        """))
+    elif has_users_identity and has_identities:
+        conn.execute(sa.text("""
+            INSERT INTO participants (id, type, ref_id, display_name, avatar_url)
+            SELECT gen_random_uuid(), 'user', u.id,
+                   COALESCE(NULLIF(TRIM(u.display_name), ''), i.username, 'User'),
+                   u.avatar_url
+            FROM users u
+            LEFT JOIN identities i ON i.id = u.identity_id
+            ON CONFLICT DO NOTHING
+        """))
+    else:
+        conn.execute(sa.text("""
+            INSERT INTO participants (id, type, ref_id, display_name, avatar_url)
+            SELECT gen_random_uuid(), 'user', id, COALESCE(NULLIF(TRIM(display_name), ''), 'User'), avatar_url
+            FROM users
+            ON CONFLICT DO NOTHING
+        """))
 
     # 3. Backfill: create Participant for every existing Agent
     conn.execute(sa.text("""

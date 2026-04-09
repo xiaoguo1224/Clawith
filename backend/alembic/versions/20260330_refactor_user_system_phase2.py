@@ -23,9 +23,15 @@ def upgrade() -> None:
     conn = op.get_bind()
     inspector = inspect(conn)
     tables = inspector.get_table_names()
+    user_cols: set[str] = set()
+    if "users" in tables:
+        user_cols = {c["name"] for c in inspector.get_columns("users")}
+    # Login identifiers on users (legacy). If absent, email/username/password are on identities only.
+    legacy_credentials_on_users = "email" in user_cols or "username" in user_cols
  
     # 1. Baseline: Add missing/intermediate columns to users (idempotent)
-    op.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified BOOLEAN NOT NULL DEFAULT True")
+    if legacy_credentials_on_users:
+        op.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified BOOLEAN NOT NULL DEFAULT True")
     op.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()")
     
     # 2. Cleanup: Drop obsolete SSO columns
@@ -60,14 +66,26 @@ def upgrade() -> None:
         op.create_index(op.f('ix_users_identity_id'), 'users', ['identity_id'], unique=False)
         op.create_foreign_key('fk_users_identity_id', 'users', 'identities', ['identity_id'], ['id'])
  
-    # 5. Data migration (idempotent)
-    # Only migrate users that don't have an identity_id yet
-    result = conn.execute(sa.text("""
-        SELECT id, email, primary_mobile, username, password_hash, email_verified, is_active, role 
-        FROM users 
-        WHERE identity_id IS NULL
-    """))
-    users_data = result.fetchall()
+    user_cols_current = {c["name"] for c in inspect(conn).get_columns("users")}
+
+    # 5. Data migration (idempotent) — only when credential columns still exist on users
+    users_data = []
+    if legacy_credentials_on_users and "identity_id" in user_cols_current:
+        need = {"id", "email", "username", "password_hash", "email_verified", "is_active", "role"}
+        if need.issubset(user_cols_current):
+            if "primary_mobile" in user_cols_current:
+                result = conn.execute(sa.text("""
+                    SELECT id, email, primary_mobile, username, password_hash, email_verified, is_active, role
+                    FROM users
+                    WHERE identity_id IS NULL
+                """))
+            else:
+                result = conn.execute(sa.text("""
+                    SELECT id, email, CAST(NULL AS VARCHAR(50)), username, password_hash, email_verified, is_active, role
+                    FROM users
+                    WHERE identity_id IS NULL
+                """))
+            users_data = result.fetchall()
     
     if users_data:
         # Load existing identities to match against
@@ -120,8 +138,10 @@ def upgrade() -> None:
             })
  
     # 6. Cleanup: Make username/email nullable and DROP redundant columns
-    op.alter_column('users', 'username', existing_type=sa.String(length=100), nullable=True)
-    op.alter_column('users', 'email', existing_type=sa.String(length=255), nullable=True)
+    if "username" in user_cols:
+        op.alter_column("users", "username", existing_type=sa.String(length=100), nullable=True)
+    if "email" in user_cols:
+        op.alter_column("users", "email", existing_type=sa.String(length=255), nullable=True)
 
     # Physically drop redundant columns
     op.execute("ALTER TABLE users DROP COLUMN IF EXISTS username")

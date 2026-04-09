@@ -134,18 +134,32 @@ def upgrade() -> None:
     # ============================================
     # 6. Alter users - add new fields and constraints
     # ============================================
-    op.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS primary_mobile VARCHAR(50)")
+    connection = op.get_bind()
+    users_has_email_col = connection.execute(sa.text("""
+        SELECT EXISTS (
+            SELECT 1 FROM information_schema.columns
+            WHERE table_schema = 'public' AND table_name = 'users' AND column_name = 'email'
+        )
+    """)).scalar()
+    # Email/phone/username/password live on identities — do not add legacy users.primary_mobile
+    # or tenant+mobile indexes when users no longer has an email column.
     op.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS registration_source VARCHAR(50) DEFAULT 'web'")
     op.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS external_id VARCHAR(255)")
-    op.execute("CREATE INDEX IF NOT EXISTS ix_users_primary_mobile ON users(primary_mobile)")
     op.execute("CREATE INDEX IF NOT EXISTS ix_users_external_id ON users(external_id)")
+    if users_has_email_col:
+        op.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS primary_mobile VARCHAR(50)")
+        op.execute("CREATE INDEX IF NOT EXISTS ix_users_primary_mobile ON users(primary_mobile)")
 
-    # Add unique constraints (partial indexes - allow multiple NULL values)
+    # Add unique constraints (partial indexes - allow multiple NULL values).
+    # Post-refactor schemas store email on identities, not users — skip if users.email is gone.
     op.execute("""
         DO $$
         BEGIN
             IF NOT EXISTS (
                 SELECT 1 FROM pg_indexes WHERE indexname = 'ix_users_tenant_email_unique'
+            ) AND EXISTS (
+                SELECT 1 FROM information_schema.columns
+                WHERE table_schema = 'public' AND table_name = 'users' AND column_name = 'email'
             ) THEN
                 CREATE UNIQUE INDEX ix_users_tenant_email_unique ON users(tenant_id, email) WHERE email IS NOT NULL;
             END IF;
@@ -178,6 +192,9 @@ def upgrade() -> None:
         BEGIN
             IF NOT EXISTS (
                 SELECT 1 FROM pg_indexes WHERE indexname = 'ix_users_tenant_mobile_unique'
+            ) AND EXISTS (
+                SELECT 1 FROM information_schema.columns
+                WHERE table_schema = 'public' AND table_name = 'users' AND column_name = 'primary_mobile'
             ) THEN
                 CREATE UNIQUE INDEX ix_users_tenant_mobile_unique ON users(tenant_id, primary_mobile) WHERE primary_mobile IS NOT NULL;
             END IF;
@@ -209,7 +226,6 @@ def upgrade() -> None:
     """)
 
     # Step 1: Get distinct tenant_ids from org_departments that haven't been migrated
-    connection = op.get_bind()
     result = connection.execute(sa.text("""
         SELECT DISTINCT od.tenant_id
         FROM org_departments od
