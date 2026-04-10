@@ -26,6 +26,6 @@ In practice:
 - For versioning and release work, read `.agents/rules/release.md`
 
 ## Notes
-
+- 当修改代码后，需要同步更新`F:\A____usually\tk\clawith文档`下的文档
 - The architecture document currently present in this repository is `ARCHITECTURE_SPEC_EN.md`
 - Do not invent alternative instruction filenames when the real rules already exist under `.agents/`
