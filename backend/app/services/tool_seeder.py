@@ -775,6 +775,53 @@ BUILTIN_TOOLS = [
         },
     },
     {
+        "name": "generate_image_doubao",
+        "display_name": "Generate Image (Doubao)",
+        "description": "Generate an image via Doubao Seedream models. China-friendly with Chinese language support.",
+        "category": "media",
+        "icon": "🎨",
+        "is_default": False,
+        "parameters_schema": {
+            "type": "object",
+            "properties": {
+                "prompt": {"type": "string", "description": "Detailed image description (supports Chinese)."},
+                "size": {"type": "string", "description": "Image size (e.g. 2048x2048, 2K, 3K). Default 2048x2048."},
+                "save_path": {"type": "string", "description": "Save path in workspace. Default: auto."},
+            },
+            "required": ["prompt"],
+        },
+        "config": {
+            "model": "doubao-seedream-5-0-260128",
+            "api_key": "",
+            "base_url": "",
+        },
+        "config_schema": {
+            "fields": [
+                {
+                    "key": "model",
+                    "label": "Model",
+                    "type": "text",
+                    "default": "doubao-seedream-5-0-260128",
+                    "placeholder": "e.g. doubao-seedream-5-0-260128, doubao-seedream-5.0-lite",
+                },
+                {
+                    "key": "api_key",
+                    "label": "API Key",
+                    "type": "password",
+                    "default": "",
+                    "placeholder": "Doubao (Volcengine Ark) API Key",
+                },
+                {
+                    "key": "base_url",
+                    "label": "Base URL (optional)",
+                    "type": "text",
+                    "default": "",
+                    "placeholder": "Default: https://ark.cn-beijing.volces.com/api/v3",
+                },
+            ]
+        },
+    },
+    {
         "name": "discover_resources",
         "display_name": "Resource Discovery",
         "description": "Search public MCP registries (Smithery + ModelScope) for tools and capabilities that can extend your abilities. Use this when you encounter a task you cannot handle with your current tools.",

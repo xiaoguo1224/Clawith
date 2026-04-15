@@ -796,6 +796,31 @@ AGENT_TOOLS = [
     {
         "type": "function",
         "function": {
+            "name": "generate_image_doubao",
+            "description": "Generate an image via Doubao Seedream models. Save to workspace. Supports Chinese prompts.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "prompt": {
+                        "type": "string",
+                        "description": "Detailed image description (supports Chinese).",
+                    },
+                    "size": {
+                        "type": "string",
+                        "description": "Image size. Default: 2048x2048. Options: 2048x2048, 2848x1600, 1600x2848, 3072x3072, 4096x2304, 2K, 3K",
+                    },
+                    "save_path": {
+                        "type": "string",
+                        "description": "Workspace path to save the image.",
+                    },
+                },
+                "required": ["prompt"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "discover_resources",
             "description": "Search public MCP registries (Smithery) for tools and capabilities that can extend your abilities. Use this when you encounter a task you cannot handle with your current tools.",
             "parameters": {
@@ -2210,6 +2235,8 @@ async def execute_tool(
             result = await _generate_image(agent_id, ws, arguments, "openai")
         elif tool_name == "generate_image_google":
             result = await _generate_image(agent_id, ws, arguments, "google")
+        elif tool_name == "generate_image_doubao":
+            result = await _generate_image(agent_id, ws, arguments, "doubao")
         elif tool_name == "discover_resources":
             result = await _discover_resources(arguments)
         elif tool_name == "import_mcp_server":
@@ -5791,8 +5818,15 @@ async def _generate_image(agent_id: uuid.UUID, ws: Path, arguments: dict, provid
                 base_url or "https://generativelanguage.googleapis.com/v1beta",
                 prompt, size,
             )
+        elif provider == "doubao":
+            image_bytes = await _generate_image_doubao(
+                api_key,
+                model or "doubao-seedream-5-0-260128",
+                base_url or "https://ark.cn-beijing.volces.com/api/v3",
+                prompt, size,
+            )
         else:
-            return f"❌ Unknown image generation provider: {provider}. Supported: siliconflow, openai, google"
+            return f"❌ Unknown image generation provider: {provider}. Supported: siliconflow, openai, google, doubao"
 
         if not image_bytes:
             return "❌ Image generation returned empty result. Please try a different prompt."
@@ -5983,6 +6017,57 @@ async def _generate_image_google(
             f"No image (inlineData) found in Gemini response parts. "
             f"Parts: {[p.get('text', '(image)') if 'text' in p else '(inline)' for p in parts]}"
         )
+
+
+async def _generate_image_doubao(
+    api_key: str, model: str, base_url: str, prompt: str, size: str
+) -> bytes:
+    """Generate image via Doubao Seedream API (Volcengine Ark).
+
+    Doubao API is OpenAI-compatible and returns a temporary URL (expires in ~24 hours),
+    so we download the image bytes immediately after generation.
+
+    Supports both URL and b64_json response formats.
+    """
+    import httpx
+    import base64
+
+    url = f"{(base_url or 'https://ark.cn-beijing.volces.com/api/v3').rstrip('/')}/images/generations"
+    headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+    payload = {
+        "model": model,
+        "prompt": prompt,
+        "size": size,
+        "n": 1,
+        "response_format": "url",
+    }
+
+    async with httpx.AsyncClient(timeout=120) as client:
+        resp = await client.post(url, json=payload, headers=headers)
+        if resp.status_code != 200:
+            try:
+                err_body = resp.json()
+                err_msg = err_body.get("error", {}).get("message", resp.text[:300])
+            except Exception:
+                err_msg = resp.text[:300]
+            raise ValueError(f"Doubao API error ({resp.status_code}): {err_msg}")
+        data = resp.json()
+
+        image_data = data.get("data", [{}])[0]
+
+        # Try URL first (Doubao default with 24h expiry)
+        image_url = image_data.get("url")
+        if image_url:
+            img_resp = await client.get(image_url, timeout=60)
+            img_resp.raise_for_status()
+            return img_resp.content
+
+        # Fallback to b64_json
+        b64 = image_data.get("b64_json")
+        if b64:
+            return base64.b64decode(b64)
+
+        raise ValueError(f"No image URL or b64_json in Doubao response: {data}")
 
 
 # ─── Feishu Helper ────────────────────────────────────────────────────────────
