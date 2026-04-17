@@ -19,7 +19,8 @@ import { copyToClipboard } from '../utils/clipboard';
 import { formatFileSize } from '../utils/formatFileSize';
 import { IconPaperclip, IconSend } from '@tabler/icons-react';
 
-const TABS = ['status', 'aware', 'mind', 'tools', 'skills', 'relationships', 'workspace', 'chat', 'activityLog', 'approvals', 'settings'] as const;
+// const TABS = ['status', 'aware', 'mind', 'tools', 'skills', 'relationships', 'workspace', 'chat', 'activityLog', 'approvals', 'settings'] as const;
+const TABS = [ 'chat','workspace','aware', 'mind', 'tools', 'skills', 'relationships',  'activityLog', 'approvals', 'status', 'settings'] as const;
 
 // Format large token numbers with K/M suffixes
 const formatTokens = (n: number) => {
@@ -1319,7 +1320,7 @@ function AgentDetailInner() {
     const location = useLocation();
     const validTabs = ['status', 'aware', 'mind', 'tools', 'skills', 'relationships', 'workspace', 'chat', 'activityLog', 'approvals', 'settings'];
     const hashTab = location.hash?.replace('#', '');
-    const [activeTab, setActiveTabRaw] = useState<string>(hashTab && validTabs.includes(hashTab) ? hashTab : 'status');
+    const [activeTab, setActiveTabRaw] = useState<string>(hashTab && validTabs.includes(hashTab) ? hashTab : 'chat');
 
     // Sync URL hash when tab changes
     const setActiveTab = (tab: string) => {
