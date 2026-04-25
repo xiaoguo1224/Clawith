@@ -61,6 +61,7 @@ function ToolsManager({ agentId, canManage = false }: { agentId: string; canMana
     // Global (company-level) config for the currently open modal — used to show
     // lock hints and prevent agent from overriding company-set fields.
     const [configGlobalData, setConfigGlobalData] = useState<Record<string, any>>({});
+    const [openMcpServers, setOpenMcpServers] = useState<Record<string, boolean>>({});
 
     const CATEGORY_CONFIG_SCHEMAS: Record<string, any> = {
         agentbay: {
@@ -233,8 +234,257 @@ function ToolsManager({ agentId, canManage = false }: { agentId: string; canMana
         }, {});
 
     const renderToolGroup = (groupedTools: Record<string, any[]>) =>
-        Object.entries(groupedTools).map(([category, catTools]) => (
-            <div key={category}>
+        Object.entries(groupedTools).map(([category, catTools]) => {
+            if (category === 'custom') {
+                const mcpByServer: Record<string, any[]> = {};
+                const nonMcpTools: any[] = [];
+                (catTools as any[]).forEach((tool: any) => {
+                    if (tool.type === 'mcp' && tool.mcp_server_name) {
+                        (mcpByServer[tool.mcp_server_name] = mcpByServer[tool.mcp_server_name] || []).push(tool);
+                    } else {
+                        nonMcpTools.push(tool);
+                    }
+                });
+
+                return (
+                    <div key={category}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 14px', marginBottom: '8px' }}>
+                            <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                                {getCategoryLabels(t)[category] || category}
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                {CATEGORY_CONFIG_SCHEMAS[category] && canManage && (
+                                    <button
+                                        onClick={() => openCategoryConfig(category)}
+                                        style={{ background: 'none', border: '1px solid var(--border-subtle)', borderRadius: '6px', padding: '3px 8px', fontSize: '11px', cursor: 'pointer', color: 'var(--text-secondary)' }}
+                                        title={`Configure ${category}`}
+                                    >⚙️ Config</button>
+                                )}
+                                {canManage && (
+                                    <label style={{ position: 'relative', display: 'inline-block', width: '40px', height: '22px', cursor: 'pointer', flexShrink: 0 }} title={`Enable/Disable all ${getCategoryLabels(t)[category] || category} tools`}>
+                                        <input type="checkbox"
+                                            checked={(catTools as any[]).every(t => t.enabled)}
+                                            onChange={async (e) => {
+                                                const targetEnabled = e.target.checked;
+                                                const catToolIds = new Set((catTools as any[]).map(t => t.id));
+                                                setTools(prev => prev.map(t => catToolIds.has(t.id) ? { ...t, enabled: targetEnabled } : t));
+                                                try {
+                                                    const token = localStorage.getItem('token');
+                                                    const payload = Array.from(catToolIds).map(id => ({ tool_id: id, enabled: targetEnabled }));
+                                                    await fetch(`/api/tools/agents/${agentId}`, {
+                                                        method: 'PUT',
+                                                        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                                                        body: JSON.stringify(payload),
+                                                    });
+                                                } catch (err: any) {
+                                                    console.error('Bulk update failed', err);
+                                                    loadTools();
+                                                }
+                                            }}
+                                            style={{ opacity: 0, width: 0, height: 0 }} />
+                                        <span style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, borderRadius: '22px', background: (catTools as any[]).every(t => t.enabled) ? 'var(--accent-primary)' : 'var(--bg-tertiary)', transition: '0.3s', boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.1)' }}>
+                                            <span style={{ position: 'absolute', left: (catTools as any[]).every(t => t.enabled) ? '20px' : '2px', top: '2px', width: '18px', height: '18px', borderRadius: '50%', background: '#fff', transition: '0.3s', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }} />
+                                        </span>
+                                    </label>
+                                )}
+                            </div>
+                        </div>
+
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                            {Object.entries(mcpByServer).map(([serverName, serverTools]) => {
+                                const isOpen = openMcpServers[serverName] ?? true;
+                                return (
+                                    <div key={serverName} style={{ border: '1px solid var(--border-subtle)', borderRadius: '8px', overflow: 'hidden' }}>
+                                        <button
+                                            type="button"
+                                            onClick={() => setOpenMcpServers(prev => ({ ...prev, [serverName]: !isOpen }))}
+                                            style={{
+                                                width: '100%',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'space-between',
+                                                padding: '8px 14px',
+                                                background: 'var(--bg-secondary)',
+                                                border: 'none',
+                                                borderBottom: isOpen ? '1px solid var(--border-subtle)' : 'none',
+                                                cursor: 'pointer',
+                                                color: 'inherit',
+                                            }}
+                                        >
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
+                                                <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={serverName}>
+                                                    {serverName}
+                                                </span>
+                                                <span style={{ fontSize: '10px', background: 'rgba(99,102,241,0.12)', color: 'var(--accent-color)', borderRadius: '4px', padding: '1px 5px' }}>MCP</span>
+                                                <span style={{ fontSize: '10px', color: 'var(--text-tertiary)' }}>{(serverTools as any[]).length}</span>
+                                            </div>
+                                            <span style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>{isOpen ? '▾' : '▸'}</span>
+                                        </button>
+
+                                        {isOpen && (
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+                                                {(serverTools as any[]).map((tool: any, toolIdx: number) => {
+                                                    const hasConfig = tool.config_schema?.fields?.length > 0 || tool.type === 'mcp';
+                                                    return (
+                                                    <div key={tool.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 14px', borderBottom: toolIdx < serverTools.length - 1 ? '1px solid var(--border-subtle)' : 'none' }}>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, minWidth: 0 }}>
+                                                            <span style={{ fontSize: '13px', color: 'var(--text-tertiary)' }}>·</span>
+                                                            <div style={{ minWidth: 0 }}>
+                                                                <div style={{ fontWeight: 500, fontSize: '13px' }}>{tool.display_name}</div>
+                                                                <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{tool.description?.slice(0, 90)}</div>
+                                                            </div>
+                                                        </div>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                                                            {canManage && hasConfig && (
+                                                                <button
+                                                                    onClick={() => openConfig(tool)}
+                                                                    style={{ background: 'none', border: '1px solid var(--border-subtle)', borderRadius: '6px', padding: '3px 8px', fontSize: '11px', cursor: 'pointer', color: 'var(--text-secondary)' }}
+                                                                    title="Configure per-agent settings"
+                                                                >⚙️ Config</button>
+                                                            )}
+                                                            {canManage && tool.source === 'agent' && tool.agent_tool_id && (
+                                                                <button
+                                                                    onClick={async () => {
+                                                                        if (!confirm(t('agent.tools.confirmDelete', `Remove "${tool.display_name}" from this agent?`))) return;
+                                                                        setDeletingToolId(tool.id);
+                                                                        try {
+                                                                            const token = localStorage.getItem('token');
+                                                                            const res = await fetch(`/api/tools/agent-tool/${tool.agent_tool_id}`, {
+                                                                                method: 'DELETE',
+                                                                                headers: { Authorization: `Bearer ${token}` },
+                                                                            });
+                                                                            if (res.ok) await loadTools();
+                                                                            else alert('Delete failed');
+                                                                        } catch (e) { alert('Delete failed: ' + e); }
+                                                                        setDeletingToolId(null);
+                                                                    }}
+                                                                    disabled={deletingToolId === tool.id}
+                                                                    style={{ background: 'none', border: '1px solid var(--border-subtle)', borderRadius: '6px', padding: '3px 8px', fontSize: '11px', cursor: 'pointer', color: 'var(--text-tertiary)', opacity: deletingToolId === tool.id ? 0.5 : 1 }}
+                                                                    title={t('agent.tools.removeTool', 'Remove from agent')}
+                                                                >{deletingToolId === tool.id ? '...' : '✕'}</button>
+                                                            )}
+                                                            {canManage ? (
+                                                                <label style={{ position: 'relative', display: 'inline-block', width: '40px', height: '22px', cursor: 'pointer', flexShrink: 0 }}>
+                                                                    <input
+                                                                        type="checkbox"
+                                                                        checked={tool.enabled}
+                                                                        onChange={e => toggleTool(tool.id, e.target.checked)}
+                                                                        style={{ opacity: 0, width: 0, height: 0 }}
+                                                                    />
+                                                                    <span style={{
+                                                                        position: 'absolute', inset: 0,
+                                                                        background: tool.enabled ? 'var(--accent-primary)' : 'var(--bg-tertiary)',
+                                                                        borderRadius: '11px', transition: 'background 0.2s',
+                                                                    }}>
+                                                                        <span style={{
+                                                                            position: 'absolute', left: tool.enabled ? '20px' : '2px', top: '2px',
+                                                                            width: '18px', height: '18px', background: '#fff',
+                                                                            borderRadius: '50%', transition: 'left 0.2s',
+                                                                        }} />
+                                                                    </span>
+                                                                </label>
+                                                            ) : (
+                                                                <span style={{ fontSize: '11px', color: tool.enabled ? 'var(--accent-primary)' : 'var(--text-tertiary)', fontWeight: 500 }}>
+                                                                    {tool.enabled ? t('common.enabled', 'On') : t('common.disabled', 'Off')}
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })}
+
+                            {nonMcpTools.length > 0 && (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                    {nonMcpTools.map((tool: any) => {
+                                        const hasConfig = tool.config_schema?.fields?.length > 0;
+                                        return (
+                                            <div key={tool.id} className="card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px' }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1, minWidth: 0 }}>
+                                                    <span style={{ fontSize: '18px' }}>{tool.icon}</span>
+                                                    <div style={{ minWidth: 0 }}>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                            <span style={{ fontWeight: 500, fontSize: '13px' }}>{tool.display_name}</span>
+                                                            {tool.type === 'builtin' && (
+                                                                <span style={{ fontSize: '10px', background: 'var(--bg-tertiary)', color: 'var(--text-secondary)', borderRadius: '4px', padding: '1px 5px' }}>Built-in</span>
+                                                            )}
+                                                        </div>
+                                                        <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                            {tool.description}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                                                    {canManage && hasConfig && (
+                                                        <button
+                                                            onClick={() => openConfig(tool)}
+                                                            style={{ background: 'none', border: '1px solid var(--border-subtle)', borderRadius: '6px', padding: '3px 8px', fontSize: '11px', cursor: 'pointer', color: 'var(--text-secondary)' }}
+                                                            title="Configure per-agent settings"
+                                                        >⚙️ Config</button>
+                                                    )}
+                                                    {canManage && tool.source === 'agent' && tool.agent_tool_id && (
+                                                        <button
+                                                            onClick={async () => {
+                                                                if (!confirm(t('agent.tools.confirmDelete', `Remove "${tool.display_name}" from this agent?`))) return;
+                                                                setDeletingToolId(tool.id);
+                                                                try {
+                                                                    const token = localStorage.getItem('token');
+                                                                    const res = await fetch(`/api/tools/agent-tool/${tool.agent_tool_id}`, {
+                                                                        method: 'DELETE',
+                                                                        headers: { Authorization: `Bearer ${token}` },
+                                                                    });
+                                                                    if (res.ok) await loadTools();
+                                                                    else alert('Delete failed');
+                                                                } catch (e) { alert('Delete failed: ' + e); }
+                                                                setDeletingToolId(null);
+                                                            }}
+                                                            disabled={deletingToolId === tool.id}
+                                                            style={{ background: 'none', border: '1px solid var(--border-subtle)', borderRadius: '6px', padding: '3px 8px', fontSize: '11px', cursor: 'pointer', color: 'var(--text-tertiary)', opacity: deletingToolId === tool.id ? 0.5 : 1 }}
+                                                            title={t('agent.tools.removeTool', 'Remove from agent')}
+                                                        >{deletingToolId === tool.id ? '...' : '✕'}</button>
+                                                    )}
+                                                    {canManage ? (
+                                                        <label style={{ position: 'relative', display: 'inline-block', width: '40px', height: '22px', cursor: 'pointer', flexShrink: 0 }}>
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={tool.enabled}
+                                                                onChange={e => toggleTool(tool.id, e.target.checked)}
+                                                                style={{ opacity: 0, width: 0, height: 0 }}
+                                                            />
+                                                            <span style={{
+                                                                position: 'absolute', inset: 0,
+                                                                background: tool.enabled ? 'var(--accent-primary)' : 'var(--bg-tertiary)',
+                                                                borderRadius: '11px', transition: 'background 0.2s',
+                                                            }}>
+                                                                <span style={{
+                                                                    position: 'absolute', left: tool.enabled ? '20px' : '2px', top: '2px',
+                                                                    width: '18px', height: '18px', background: '#fff',
+                                                                    borderRadius: '50%', transition: 'left 0.2s',
+                                                                }} />
+                                                            </span>
+                                                        </label>
+                                                    ) : (
+                                                        <span style={{ fontSize: '11px', color: tool.enabled ? 'var(--accent-primary)' : 'var(--text-tertiary)', fontWeight: 500 }}>
+                                                            {tool.enabled ? t('common.enabled', 'On') : t('common.disabled', 'Off')}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                );
+            }
+
+            return (
+                <div key={category}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 14px', marginBottom: '8px' }}>
                     <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                         {getCategoryLabels(t)[category] || category}
@@ -365,7 +615,8 @@ function ToolsManager({ agentId, canManage = false }: { agentId: string; canMana
                     })}
                 </div>
             </div>
-        ));
+            );
+        });
 
     const activeTools = toolTab === 'company' ? companyTools : agentInstalledTools;
 
