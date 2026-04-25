@@ -1064,6 +1064,8 @@
       "noAgentInstalledTools": "No agent-installed tools yet.",
       "removeFromAgent": "Remove \"{{name}}\" from agent?",
       "delete": "Delete",
+      "deleteServer": "Delete Server",
+      "deleteServerConfirm": "Delete all tools from MCP server \"{{name}}\"?",
       "addMcpServer": "Add MCP Server",
       "mcpServer": "MCP Server",
       "jsonConfig": "JSON Config",

@@ -1172,6 +1172,8 @@
       "noAgentInstalledTools": "暂无 Agent 安装的工具。",
       "removeFromAgent": "从 Agent 中移除 \"{{name}}\"？",
       "delete": "删除",
+      "deleteServer": "删除服务器",
+      "deleteServerConfirm": "删除 MCP 服务器 \"{{name}}\" 的全部工具？",
       "addMcpServer": "添加 MCP 服务器",
       "mcpServer": "MCP 服务器",
       "jsonConfig": "JSON 配置",

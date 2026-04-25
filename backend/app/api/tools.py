@@ -228,8 +228,33 @@ async def create_tool(
     existing = await db.execute(
         select(Tool).where(Tool.name == data.name, Tool.tenant_id == target_tenant_id)
     )
-    if existing.scalar_one_or_none():
-        raise HTTPException(status_code=400, detail=f"Tool '{data.name}' already exists")
+    existing_tool = existing.scalar_one_or_none()
+    if existing_tool:
+        # MCP imports are expected to be idempotent: re-importing the same
+        # server/tool should refresh the existing row instead of forcing the
+        # user to delete every child tool first.
+        if data.type != "mcp":
+            raise HTTPException(status_code=400, detail=f"Tool '{data.name}' already exists")
+
+        if existing_tool.type == "builtin":
+            raise HTTPException(status_code=400, detail=f"Tool '{data.name}' already exists")
+
+        existing_tool.display_name = data.display_name
+        existing_tool.description = data.description
+        existing_tool.type = data.type
+        existing_tool.category = data.category
+        existing_tool.icon = data.icon
+        existing_tool.parameters_schema = data.parameters_schema
+        existing_tool.mcp_server_url = data.mcp_server_url
+        existing_tool.mcp_server_name = data.mcp_server_name
+        existing_tool.mcp_tool_name = data.mcp_tool_name
+        existing_tool.is_default = data.is_default
+        existing_tool.source = "admin"
+        if data.tenant_id:
+            existing_tool.tenant_id = target_tenant_id
+        await db.commit()
+        await db.refresh(existing_tool)
+        return {"id": str(existing_tool.id), "name": existing_tool.name, "updated": True}
 
     tool = Tool(
         name=data.name,
@@ -250,6 +275,44 @@ async def create_tool(
     await db.commit()
     await db.refresh(tool)
     return {"id": str(tool.id), "name": tool.name}
+
+
+@router.delete("/mcp-server")
+async def delete_mcp_server(
+    server_name: str = Query(..., description="MCP server name to delete"),
+    tenant_id: str | None = None,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Delete all MCP tools that belong to one server group."""
+    target_tenant_id: uuid.UUID | None = None
+    if tenant_id:
+        try:
+            target_tenant_id = uuid.UUID(tenant_id)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid tenant_id format")
+    else:
+        target_tenant_id = current_user.tenant_id
+
+    query = select(Tool).where(
+        Tool.type == "mcp",
+        Tool.mcp_server_name == server_name,
+    )
+    if target_tenant_id:
+        query = query.where(Tool.tenant_id == target_tenant_id)
+    else:
+        query = query.where(Tool.tenant_id == None)
+
+    result = await db.execute(query)
+    tools = result.scalars().all()
+    if not tools:
+        raise HTTPException(status_code=404, detail=f"No MCP tools found for server '{server_name}'")
+
+    tool_ids = [t.id for t in tools]
+    await db.execute(delete(AgentTool).where(AgentTool.tool_id.in_(tool_ids)))
+    await db.execute(delete(Tool).where(Tool.id.in_(tool_ids)))
+    await db.commit()
+    return {"ok": True, "deleted": len(tool_ids)}
 
 
 # NOTE: Literal path routes (/bulk, /mcp-server) MUST be defined BEFORE

@@ -1916,6 +1916,23 @@ export default function EnterpriseSettings() {
         const data = await fetchJson<any[]>(`/tools${tid ? `?tenant_id=${tid}` : ''}`);
         setAllTools(data);
     };
+    const purgeMcpServer = async (serverName: string) => {
+        const tid = selectedTenantId;
+        try {
+            await fetchJson(
+                `/tools/mcp-server?server_name=${encodeURIComponent(serverName)}${tid ? `&tenant_id=${encodeURIComponent(tid)}` : ''}`,
+                { method: 'DELETE' },
+            );
+        } catch (err: any) {
+            if (err?.status !== 404) throw err;
+        }
+    };
+    const deleteMcpServer = async (serverName: string) => {
+        if (!confirm(t('enterprise.tools.deleteServerConfirm', { name: serverName, defaultValue: `Delete all tools from MCP server "${serverName}"?` }))) return;
+        await purgeMcpServer(serverName);
+        await loadAllTools();
+        await loadAgentInstalledTools();
+    };
     const loadAgentInstalledTools = async () => {
         try {
             const tid = selectedTenantId;
@@ -2785,11 +2802,11 @@ export default function EnterpriseSettings() {
                                         </div>
                                         {mcpTestResult && (
                                             <div className="card" style={{ padding: '12px', background: mcpTestResult.ok ? 'rgba(0,200,100,0.1)' : 'rgba(255,0,0,0.1)' }}>
-                                                {mcpTestResult.ok ? (
-                                                    <div>
-                                                        <div style={{ color: 'var(--success)', fontWeight: 600, marginBottom: '8px' }}>{t('enterprise.tools.connectionSuccess', { count: mcpTestResult.tools?.length || 0 })}</div>
-                                                        {(mcpTestResult.tools || []).map((tool: any, i: number) => (
-                                                            <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0', borderBottom: '1px solid var(--border-color)' }}>
+                                                                {mcpTestResult.ok ? (
+                                            <div>
+                                                <div style={{ color: 'var(--success)', fontWeight: 600, marginBottom: '8px' }}>{t('enterprise.tools.connectionSuccess', { count: mcpTestResult.tools?.length || 0 })}</div>
+                                                {(mcpTestResult.tools || []).map((tool: any, i: number) => (
+                                                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0', borderBottom: '1px solid var(--border-color)' }}>
                                                                 <div>
                                                                     <span style={{ fontWeight: 500, fontSize: '13px' }}>{tool.name}</span>
                                                                     <div style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>{tool.description?.slice(0, 80)}</div>
@@ -2830,6 +2847,7 @@ export default function EnterpriseSettings() {
                                                                 let successCount = 0;
                                                                 const errors: string[] = [];
                                                                 const serverName = mcpForm.server_name || mcpForm.server_url;
+                                                                await purgeMcpServer(serverName);
                                                                 for (const tool of tools) {
                                                                     try {
                                                                         await fetchJson('/tools', {
@@ -2938,6 +2956,13 @@ export default function EnterpriseSettings() {
                                                                                     });
                                                                                 }}
                                                                             >Edit Server</button>
+                                                                            <button
+                                                                                className="btn btn-danger"
+                                                                                style={{ padding: '3px 9px', fontSize: '11px' }}
+                                                                                onClick={async () => { await deleteMcpServer(serverName); }}
+                                                                            >
+                                                                                {t('enterprise.tools.deleteServer', 'Delete Server')}
+                                                                            </button>
                                                                             {/* Server-level enable/disable all toggle */}
                                                                             <label style={{ position: 'relative', display: 'inline-block', width: '40px', height: '22px', cursor: 'pointer', flexShrink: 0 }} title={`Enable/Disable all ${serverName} tools`}>
                                                                                 <input type="checkbox"
