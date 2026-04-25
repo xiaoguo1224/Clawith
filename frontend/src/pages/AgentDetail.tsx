@@ -293,11 +293,10 @@ function ToolsManager({ agentId, canManage = false }: { agentId: string; canMana
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                             {Object.entries(mcpByServer).map(([serverName, serverTools]) => {
                                 const isOpen = openMcpServers[serverName] ?? true;
+                                const allEnabled = (serverTools as any[]).every(t => t.enabled);
                                 return (
                                     <div key={serverName} style={{ border: '1px solid var(--border-subtle)', borderRadius: '8px', overflow: 'hidden' }}>
-                                        <button
-                                            type="button"
-                                            onClick={() => setOpenMcpServers(prev => ({ ...prev, [serverName]: !isOpen }))}
+                                        <div
                                             style={{
                                                 width: '100%',
                                                 display: 'flex',
@@ -305,21 +304,82 @@ function ToolsManager({ agentId, canManage = false }: { agentId: string; canMana
                                                 justifyContent: 'space-between',
                                                 padding: '8px 14px',
                                                 background: 'var(--bg-secondary)',
-                                                border: 'none',
                                                 borderBottom: isOpen ? '1px solid var(--border-subtle)' : 'none',
-                                                cursor: 'pointer',
                                                 color: 'inherit',
+                                                gap: '12px',
                                             }}
                                         >
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setOpenMcpServers(prev => ({ ...prev, [serverName]: !isOpen }))}
+                                                    style={{
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        gap: '8px',
+                                                        background: 'none',
+                                                        border: 'none',
+                                                        padding: 0,
+                                                        cursor: 'pointer',
+                                                        color: 'inherit',
+                                                        minWidth: 0,
+                                                    }}
+                                                >
                                                 <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={serverName}>
                                                     {serverName}
                                                 </span>
                                                 <span style={{ fontSize: '10px', background: 'rgba(99,102,241,0.12)', color: 'var(--accent-color)', borderRadius: '4px', padding: '1px 5px' }}>MCP</span>
                                                 <span style={{ fontSize: '10px', color: 'var(--text-tertiary)' }}>{(serverTools as any[]).length}</span>
+                                                <span style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>{isOpen ? '▾' : '▸'}</span>
+                                                </button>
                                             </div>
-                                            <span style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>{isOpen ? '▾' : '▸'}</span>
-                                        </button>
+                                            {canManage ? (
+                                                <label
+                                                    style={{ position: 'relative', display: 'inline-block', width: '40px', height: '22px', cursor: 'pointer', flexShrink: 0 }}
+                                                    title={`Enable/Disable all ${serverName} tools`}
+                                                >
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={allEnabled}
+                                                        onChange={async (e) => {
+                                                            const targetEnabled = e.target.checked;
+                                                            const payload = (serverTools as any[]).map(t => ({ tool_id: t.id, enabled: targetEnabled }));
+                                                            setTools(prev => prev.map(t => ((serverTools as any[]).some(st => st.id === t.id) ? { ...t, enabled: targetEnabled } : t)));
+                                                            try {
+                                                                const token = localStorage.getItem('token');
+                                                                await fetch(`/api/tools/agents/${agentId}`, {
+                                                                    method: 'PUT',
+                                                                    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                                                                    body: JSON.stringify(payload),
+                                                                });
+                                                            } catch (err) {
+                                                                console.error('Server bulk toggle failed', err);
+                                                                loadTools();
+                                                            }
+                                                        }}
+                                                        style={{ opacity: 0, width: 0, height: 0 }}
+                                                    />
+                                                    <span style={{
+                                                        position: 'absolute',
+                                                        inset: 0,
+                                                        background: allEnabled ? 'var(--accent-primary)' : 'var(--bg-tertiary)',
+                                                        borderRadius: '11px',
+                                                        transition: 'background 0.2s',
+                                                    }}>
+                                                        <span style={{
+                                                            position: 'absolute',
+                                                            left: allEnabled ? '20px' : '2px',
+                                                            top: '2px',
+                                                            width: '18px',
+                                                            height: '18px',
+                                                            background: '#fff',
+                                                            borderRadius: '50%',
+                                                            transition: 'left 0.2s',
+                                                        }} />
+                                                    </span>
+                                                </label>
+                                            ) : null}
+                                        </div>
 
                                         {isOpen && (
                                             <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>

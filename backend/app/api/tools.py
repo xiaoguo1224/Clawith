@@ -1,6 +1,7 @@
 """Tool management API — CRUD for tools and per-agent assignments."""
 
 import uuid
+from urllib.parse import urlparse
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
@@ -19,6 +20,31 @@ router = APIRouter(prefix="/tools", tags=["tools"])
 # This is used as a FALLBACK for tools that don't have config_schema.
 # When config_schema is available, fields with type='password' are used instead.
 SENSITIVE_FIELD_KEYS = {"api_key", "private_key", "auth_code", "password", "secret"}
+
+
+def _normalize_mcp_server_key(value: str | None) -> str:
+    """Normalize MCP server identifiers for loose matching.
+
+    Accepts display names, slugs, and URLs and collapses them into a single
+    comparable key so server-level delete/update actions keep working even if
+    the frontend sends a different representation than the stored row.
+    """
+    if not value:
+        return ""
+
+    raw = value.strip().lower()
+    if "://" in raw:
+        parsed = urlparse(raw)
+        raw = parsed.netloc or parsed.path
+    raw = raw.split("?")[0].split("#")[0].strip("/")
+
+    pieces: list[str] = []
+    for chunk in raw.replace(".", "-").replace("_", "-").split("/"):
+        for part in chunk.split("-"):
+            part = "".join(ch for ch in part if ch.isalnum())
+            if part:
+                pieces.append(part)
+    return "-".join(pieces)
 
 
 def _get_sensitive_keys(config_schema: dict | None = None) -> set[str]:
@@ -294,19 +320,22 @@ async def delete_mcp_server(
     else:
         target_tenant_id = current_user.tenant_id
 
-    query = select(Tool).where(
-        Tool.type == "mcp",
-        Tool.mcp_server_name == server_name,
-    )
+    target_key = _normalize_mcp_server_key(server_name)
+    query = select(Tool).where(Tool.type == "mcp")
     if target_tenant_id:
         query = query.where(Tool.tenant_id == target_tenant_id)
     else:
         query = query.where(Tool.tenant_id == None)
 
     result = await db.execute(query)
-    tools = result.scalars().all()
+    tools = []
+    for tool in result.scalars().all():
+        tool_key = _normalize_mcp_server_key(tool.mcp_server_name or tool.mcp_server_url or tool.name)
+        if tool_key == target_key:
+            tools.append(tool)
+
     if not tools:
-        raise HTTPException(status_code=404, detail=f"No MCP tools found for server '{server_name}'")
+        return {"ok": True, "deleted": 0}
 
     tool_ids = [t.id for t in tools]
     await db.execute(delete(AgentTool).where(AgentTool.tool_id.in_(tool_ids)))
@@ -522,19 +551,22 @@ async def update_mcp_server(
     else:
         target_tenant_id = current_user.tenant_id
 
-    # Load all tools from this server under the target tenant
-    result = await db.execute(
-        select(Tool).where(
-            Tool.mcp_server_name == data.server_name,
-            Tool.tenant_id == target_tenant_id,
-        )
-    )
-    tools = result.scalars().all()
+    # Load all tools from this server under the target tenant using normalized matching.
+    target_key = _normalize_mcp_server_key(data.server_name)
+    query = select(Tool).where(Tool.type == "mcp")
+    if target_tenant_id:
+        query = query.where(Tool.tenant_id == target_tenant_id)
+    else:
+        query = query.where(Tool.tenant_id == None)
+    result = await db.execute(query)
+    tools = []
+    for tool in result.scalars().all():
+        tool_key = _normalize_mcp_server_key(tool.mcp_server_name or tool.mcp_server_url or tool.name)
+        if tool_key == target_key:
+            tools.append(tool)
+
     if not tools:
-        raise HTTPException(
-            status_code=404,
-            detail=f"No tools found for server '{data.server_name}'",
-        )
+        return {"ok": True, "updated": 0}
 
     for tool in tools:
         tool.mcp_server_url = data.server_url
