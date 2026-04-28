@@ -496,6 +496,10 @@ async def update_agent(
 
     update_data = data.model_dump(exclude_unset=True)
 
+    # Handle common_prompts if provided
+    if "common_prompts" in update_data and update_data["common_prompts"] is not None:
+        agent.common_prompts = update_data["common_prompts"]
+
     # expires_at: admin only
     if "expires_at" in update_data:
         if not is_admin:
@@ -553,7 +557,8 @@ async def update_agent(
                     })
 
     for field, value in update_data.items():
-        setattr(agent, field, value)
+        if field != 'common_prompts':  # Skip common_prompts since we handle it specially
+            setattr(agent, field, value)
     await db.flush()
 
     # Sync Participant display_name / avatar if changed

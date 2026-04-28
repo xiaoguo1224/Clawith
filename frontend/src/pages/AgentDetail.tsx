@@ -5303,6 +5303,9 @@ function AgentDetailInner() {
                 {
                     activeTab === 'settings' && (agent as any)?.agent_type !== 'openclaw' && (() => {
                         // Check if form has unsaved changes
+                        const agentCommonPrompts = normalizeCommonPrompts((agent as any)?.common_prompts);
+                        const promptsChanged = !promptsEqual(settingsForm.common_prompts, agentCommonPrompts);
+
                         const hasChanges = (
                             settingsForm.primary_model_id !== (agent?.primary_model_id || '') ||
                             settingsForm.fallback_model_id !== (agent?.fallback_model_id || '') ||
@@ -5313,17 +5316,14 @@ function AgentDetailInner() {
                             settingsForm.max_triggers !== ((agent as any)?.max_triggers ?? 20) ||
                             settingsForm.min_poll_interval_min !== ((agent as any)?.min_poll_interval_min ?? 5) ||
                             settingsForm.webhook_rate_limit !== ((agent as any)?.webhook_rate_limit ?? 5) ||
-                            !promptsEqual(
-                                normalizeCommonPrompts(settingsForm.common_prompts),
-                                normalizeCommonPrompts((agent as any)?.common_prompts),
-                            )
+                            promptsChanged
                         );
 
                         const handleSaveSettings = async () => {
                             setSettingsSaving(true);
                             setSettingsError('');
                             try {
-                                const result: any = await agentApi.update(id!, {
+                                const payload = {
                                     primary_model_id: settingsForm.primary_model_id || null,
                                     fallback_model_id: settingsForm.fallback_model_id || null,
                                     context_window_size: settingsForm.context_window_size,
@@ -5333,8 +5333,10 @@ function AgentDetailInner() {
                                     max_triggers: settingsForm.max_triggers,
                                     min_poll_interval_min: settingsForm.min_poll_interval_min,
                                     webhook_rate_limit: settingsForm.webhook_rate_limit,
-                                    common_prompts: normalizeCommonPrompts(settingsForm.common_prompts),
-                                } as any);
+                                    common_prompts: settingsForm.common_prompts,
+                                };
+
+                                const result: any = await agentApi.update(id!, payload as any);
                                 queryClient.invalidateQueries({ queryKey: ['agent', id] });
                                 settingsInitRef.current = false;
 
@@ -5372,11 +5374,9 @@ function AgentDetailInner() {
                                         {settingsError && <span style={{ fontSize: '12px', color: settingsError.includes('adjusted') ? 'var(--warning)' : 'var(--error)', whiteSpace: 'pre-line' }}>{settingsError}</span>}
                                         <button
                                             className="btn btn-primary"
-                                            disabled={!hasChanges || settingsSaving}
+                                            disabled={settingsSaving}
                                             onClick={handleSaveSettings}
                                             style={{
-                                                opacity: hasChanges ? 1 : 0.5,
-                                                cursor: hasChanges ? 'pointer' : 'default',
                                                 padding: '6px 20px',
                                                 fontSize: '13px',
                                             }}
