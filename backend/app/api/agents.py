@@ -568,6 +568,8 @@ async def update_agent(
                 p.avatar_url = agent.avatar_url
             await db.flush()
 
+    await db.commit()
+
     out = AgentOut.model_validate(agent).model_dump()
     if clamped_fields:
         out["_clamped_fields"] = clamped_fields

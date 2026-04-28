@@ -359,7 +359,7 @@ class AgentUpdate(BaseModel):
     heartbeat_active_hours: str | None = None
     timezone: str | None = None
     expires_at: datetime | None = None  # Admin only — extend agent expiry
-    common_prompts: list[CommonPromptItem] | None = None
+    common_prompts: list | None = None
 
     @field_validator("common_prompts", mode="before")
     @classmethod
@@ -383,7 +383,27 @@ class AgentUpdate(BaseModel):
             raise ValueError("common_prompts must be a list")
         if len(v) > _MAX_COMMON_PROMPTS:
             raise ValueError(f"At most {_MAX_COMMON_PROMPTS} common prompts allowed")
-        return v
+        # Normalize each item to dict, just like coerce_common_prompts does
+        out: list[dict] = []
+        for item in v:
+            if isinstance(item, dict):
+                text = str(item.get("text", "")).strip()
+                if not text:
+                    continue
+                label = str(item.get("label", "")).strip() or (text[:48] + ("…" if len(text) > 48 else ""))
+                out.append({"label": label[:80], "text": text[:4000]})
+            elif isinstance(item, str) and item.strip():
+                t = item.strip()
+                out.append({"label": (t[:48] + "…") if len(t) > 48 else t, "text": t[:4000]})
+            elif hasattr(item, "model_dump"):
+                # Handle CommonPromptItem instances
+                d = item.model_dump()
+                text = str(d.get("text", "")).strip()
+                if not text:
+                    continue
+                label = str(d.get("label", "")).strip() or (text[:48] + ("…" if len(text) > 48 else ""))
+                out.append({"label": label[:80], "text": text[:4000]})
+        return out[:_MAX_COMMON_PROMPTS]
 
 
 class AgentStatusOut(BaseModel):
