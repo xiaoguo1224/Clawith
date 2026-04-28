@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { agentApi, fetchJson } from '../services/api';
 import { useAuthStore } from '../stores';
 import LinearCopyButton from '../components/LinearCopyButton';
+import { CommonPromptsEditor, normalizeCommonPrompts, promptsEqual } from '../components/CommonPrompts';
 function fetchAuth<T>(url: string, options?: RequestInit): Promise<T> {
     const token = localStorage.getItem('token');
     return fetch(`/api${url}`, {
@@ -32,8 +33,16 @@ export default function OpenClawSettings({ agent, agentId }: OpenClawSettingsPro
     // ─── Delete state ───────────────────────────────────
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [deleting, setDeleting] = useState(false);
+    const [ocPrompts, setOcPrompts] = useState(() => normalizeCommonPrompts(agent?.common_prompts));
+    const [ocPromptsSaving, setOcPromptsSaving] = useState(false);
+    const [ocPromptsSaved, setOcPromptsSaved] = useState(false);
 
     const hasKey = agent?.has_api_key || false;
+
+    const serverPromptsSig = JSON.stringify(normalizeCommonPrompts(agent?.common_prompts));
+    useEffect(() => {
+        setOcPrompts(normalizeCommonPrompts(agent?.common_prompts));
+    }, [agent?.id, serverPromptsSig]);
 
     const handleRegenerate = async (autoCopy = false) => {
         setRegenerating(true);
@@ -162,6 +171,23 @@ export default function OpenClawSettings({ agent, agentId }: OpenClawSettingsPro
     };
 
     const isOwner = permData?.is_owner ?? false;
+
+    const ocPromptsDirty = !promptsEqual(ocPrompts, normalizeCommonPrompts(agent?.common_prompts));
+
+    const saveOcPrompts = async () => {
+        if (!isOwner) return;
+        setOcPromptsSaving(true);
+        try {
+            await agentApi.update(agentId, { common_prompts: normalizeCommonPrompts(ocPrompts) } as any);
+            queryClient.invalidateQueries({ queryKey: ['agent', agentId] });
+            setOcPromptsSaved(true);
+            setTimeout(() => setOcPromptsSaved(false), 2000);
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setOcPromptsSaving(false);
+        }
+    };
     const currentScope = permData?.scope_type || 'company';
     const currentAccessLevel = permData?.access_level || 'use';
 
@@ -421,6 +447,28 @@ export default function OpenClawSettings({ agent, agentId }: OpenClawSettingsPro
                         {t('agent.settings.perm.readOnly', 'Only the creator or admin can change permissions')}
                     </div>
                 )}
+            </div>
+
+            {/* ── Common chat prompts (OpenClaw) ── */}
+            <div className="card" style={{ marginBottom: '12px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px', flexWrap: 'wrap', gap: '8px' }}>
+                    <h4 style={{ margin: 0 }}>{t('agent.settings.commonPromptsTitle')}</h4>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        {ocPromptsSaved && (
+                            <span style={{ fontSize: '12px', color: 'var(--success)' }}>{t('agent.settings.saved', 'Saved')}</span>
+                        )}
+                        <button
+                            type="button"
+                            className="btn btn-primary"
+                            disabled={!isOwner || !ocPromptsDirty || ocPromptsSaving}
+                            onClick={saveOcPrompts}
+                            style={{ padding: '5px 14px', fontSize: '12px' }}
+                        >
+                            {ocPromptsSaving ? t('agent.settings.saving', 'Saving...') : t('agent.settings.save', 'Save')}
+                        </button>
+                    </div>
+                </div>
+                <CommonPromptsEditor value={ocPrompts} onChange={setOcPrompts} disabled={!isOwner} />
             </div>
 
             {/* ── Danger Zone: Delete Agent ── */}

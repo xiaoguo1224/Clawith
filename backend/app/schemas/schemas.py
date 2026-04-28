@@ -1,9 +1,10 @@
 """Pydantic schemas for request/response validation."""
 
+import json
 import uuid
 from datetime import datetime
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
 
 
 # ─── Auth ───────────────────────────────────────────────
@@ -212,6 +213,24 @@ class UserUpdate(BaseModel):
 
 # ─── Agent ──────────────────────────────────────────────
 
+_MAX_COMMON_PROMPTS = 20
+
+
+class CommonPromptItem(BaseModel):
+    """Single quick-prompt card: short label + full text inserted into chat."""
+
+    label: str = Field(default="", max_length=80)
+    text: str = Field(..., min_length=1, max_length=4000)
+
+    @model_validator(mode="after")
+    def default_label(self) -> "CommonPromptItem":
+        lab = (self.label or "").strip()
+        if not lab:
+            t = self.text.strip()
+            object.__setattr__(self, "label", (t[:48] + "…") if len(t) > 48 else t)
+        return self
+
+
 class AgentCreate(BaseModel):
     name: str = Field(min_length=2, max_length=100, description="Agent name, 2-100 characters")
     agent_type: str = "native"  # native | openclaw
@@ -280,8 +299,43 @@ class AgentOut(BaseModel):
     api_key_hash: str | None = None
     created_at: datetime
     last_active_at: datetime | None = None
+    common_prompts: list[CommonPromptItem] = []
 
     model_config = {"from_attributes": True}
+
+    @field_validator("common_prompts", mode="before")
+    @classmethod
+    def coerce_common_prompts(cls, v: object) -> list:
+        if v is None:
+            return []
+        # Some DB drivers / dialects return JSON columns as str or bytes — parse before item validation.
+        if isinstance(v, (bytes, bytearray)):
+            try:
+                v = json.loads(v.decode("utf-8"))
+            except (json.JSONDecodeError, UnicodeDecodeError):
+                return []
+        if isinstance(v, str):
+            s = v.strip()
+            if not s:
+                return []
+            try:
+                v = json.loads(s)
+            except json.JSONDecodeError:
+                return []
+        if not isinstance(v, list):
+            return []
+        out: list[dict] = []
+        for item in v:
+            if isinstance(item, dict):
+                text = str(item.get("text", "")).strip()
+                if not text:
+                    continue
+                label = str(item.get("label", "")).strip() or (text[:48] + ("…" if len(text) > 48 else ""))
+                out.append({"label": label[:80], "text": text[:4000]})
+            elif isinstance(item, str) and item.strip():
+                t = item.strip()
+                out.append({"label": (t[:48] + "…") if len(t) > 48 else t, "text": t[:4000]})
+        return out[:_MAX_COMMON_PROMPTS]
 
 
 class AgentUpdate(BaseModel):
@@ -305,6 +359,31 @@ class AgentUpdate(BaseModel):
     heartbeat_active_hours: str | None = None
     timezone: str | None = None
     expires_at: datetime | None = None  # Admin only — extend agent expiry
+    common_prompts: list[CommonPromptItem] | None = None
+
+    @field_validator("common_prompts", mode="before")
+    @classmethod
+    def normalize_common_prompts_update(cls, v: object) -> list | None:
+        if v is None:
+            return []
+        if isinstance(v, (bytes, bytearray)):
+            try:
+                v = json.loads(v.decode("utf-8"))
+            except (json.JSONDecodeError, UnicodeDecodeError) as e:
+                raise ValueError("common_prompts must be a list") from e
+        if isinstance(v, str):
+            s = v.strip()
+            if not s:
+                return []
+            try:
+                v = json.loads(s)
+            except json.JSONDecodeError as e:
+                raise ValueError("common_prompts must be a list") from e
+        if not isinstance(v, list):
+            raise ValueError("common_prompts must be a list")
+        if len(v) > _MAX_COMMON_PROMPTS:
+            raise ValueError(f"At most {_MAX_COMMON_PROMPTS} common prompts allowed")
+        return v
 
 
 class AgentStatusOut(BaseModel):

@@ -52,7 +52,7 @@ All core entities contain a `tenant_id` to enforce physical isolation between di
 
 ### 2.2 Core Operational Entities (Agent, Session, Messages)
 - **`Agent`** (`agent.py`): The "Digital Employees" of the platform.
-  - Key fields: `agent_type` (`native` platform-hosted or `openclaw` externally registered), `heartbeat_enabled` (whether periodic sleep/wake is active), `autonomy_policy` (a dictionary of L1-L3 level autonomous operation authorizations).
+  - Key fields: `agent_type` (`native` platform-hosted or `openclaw` externally registered), `heartbeat_enabled` (whether periodic sleep/wake is active), `autonomy_policy` (a dictionary of L1-L3 level autonomous operation authorizations), `common_prompts` (JSON list of `{label, text}` quick-insert snippets for web chat, edited under Agent Settings).
 - **`Participant`** (`participant.py`): **Crucial Table! The multi-party communication routing anchor.** Anyone capable of speaking on this platform receives a participant ID (with `type` distinguishing between `user` and `agent`). Its existence allows Agents not only to converse with humans but to initiate multi-party or A2A (Agent-to-Agent) group chats with other Agents.
 - **`ChatSession`** (`chat_session.py`): Bundles multiple messages into entities with coherent context.
 - **`ChatMessage`** (`audit.py`): Every LLM request/response, and even every tool invocation (`tool_call`), is fully snapshot and stored here.

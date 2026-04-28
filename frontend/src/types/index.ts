@@ -41,6 +41,8 @@ export interface Agent {
     last_heartbeat_at?: string;
     timezone?: string;
     context_window_size?: number;
+    /** Quick-insert chat snippets from Settings */
+    common_prompts?: { label: string; text: string }[];
     agent_type?: 'native' | 'openclaw';
     openclaw_last_seen?: string;
     created_at: string;

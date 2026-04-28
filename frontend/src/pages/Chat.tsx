@@ -8,6 +8,7 @@ import { agentApi, enterpriseApi, uploadFileWithProgress } from '../services/api
 import { IconPaperclip, IconSend } from '@tabler/icons-react';
 import { formatFileSize } from '../utils/formatFileSize';
 import { useAuthStore } from '../stores';
+import { CommonPromptStrip, normalizeCommonPrompts } from '../components/CommonPrompts';
 
 /* ── Inline SVG Icons ── */
 const Icons = {
@@ -302,6 +303,8 @@ export default function Chat() {
     const supportsVision = !!agent?.primary_model_id && llmModels.some(
         (m: any) => m.id === agent.primary_model_id && m.supports_vision
     );
+
+    const commonPrompts = normalizeCommonPrompts((agent as { common_prompts?: unknown } | undefined)?.common_prompts);
 
     const parseMessage = (msg: Message): Message => {
         if (msg.role !== 'user') return msg;
@@ -817,6 +820,21 @@ export default function Chat() {
                 </div>
 
                 <div className="chat-input-area">
+                    <CommonPromptStrip
+                        prompts={commonPrompts}
+                        disabled={!connected || isWaiting || streaming}
+                        onPick={(text) => {
+                            setInput(text);
+                            requestAnimationFrame(() => {
+                                const el = textareaRef.current;
+                                if (el) {
+                                    el.style.height = 'auto';
+                                    el.style.height = `${el.scrollHeight}px`;
+                                    el.focus();
+                                }
+                            });
+                        }}
+                    />
                     <div className="chat-composer">
                         {(uploadProgress || (attachedFile && !uploadProgress)) && (
                             <div className="chat-composer-attachments">

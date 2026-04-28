@@ -425,7 +425,8 @@
       "collapseSessions": "折叠会话列表",
       "showSessions": "显示聊天会话",
       "toolCallChain": "使用工具",
-      "analysing": "分析中"
+      "analysing": "分析中",
+      "commonPromptsHint": "常用提示词 — 点击卡片填入输入框"
     },
     "activityLog": {
       "title": "工作日志",
@@ -458,6 +459,18 @@
       "save": "保存",
       "saving": "保存中...",
       "saved": "已保存",
+      "commonPromptsTitle": "常用提示词",
+      "commonPromptsDesc": "左侧为卡片上显示的短标题，右侧为点击卡片后填入输入框的完整内容，发送前可再修改。",
+      "commonPromptsLabelPh": "卡片标题",
+      "commonPromptsTextPh": "要填入的完整提示",
+      "commonPromptsAdd": "添加一条",
+      "commonPromptsRemove": "删除",
+      "commonPromptsLimit": "最多 {{max}} 条。",
+      "commonPromptsModalAddTitle": "添加常用提示词",
+      "commonPromptsModalEditTitle": "编辑常用提示词",
+      "commonPromptsModalConfirm": "保存",
+      "commonPromptsModalDelete": "删除",
+      "commonPromptsTextRequired": "请填写完整提示内容。",
       "autonomy": {
         "title": "自主性边界配置",
         "description": "配置数字员工执行各项操作时的自主性级别",

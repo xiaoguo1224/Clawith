@@ -30,6 +30,8 @@ class Agent(Base):
     role_description: Mapped[str] = mapped_column(String(500), default="")
     bio: Mapped[str | None] = mapped_column(Text)
     welcome_message: Mapped[str | None] = mapped_column(Text, default=None)
+    # Quick-insert prompts for web chat (JSON list of { "label", "text" })
+    common_prompts: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
 
     # Ownership
     creator_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)

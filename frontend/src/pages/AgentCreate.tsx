@@ -6,8 +6,11 @@ import { agentApi, channelApi, enterpriseApi, fetchJson, skillApi } from '../ser
 import { useAuthStore } from '../stores';
 import ChannelConfig from '../components/ChannelConfig';
 import LinearCopyButton from '../components/LinearCopyButton';
+
 const STEPS = ['basicInfo', 'personality', 'skills', 'permissions', 'channel'] as const;
-const OPENCLAW_STEPS = ['basicInfo', 'permissions'] as const;
+
+/** false：隐藏「平台托管 / 连接 OpenClaw」卡片，创建始终为平台托管（OpenClaw 逻辑仍保留在代码中）。 */
+const SHOW_AGENT_TYPE_PICKER = false;
 
 /**
  * Generic parser for soul_template markdown format.
@@ -67,9 +70,15 @@ export default function AgentCreate() {
     const [error, setError] = useState('');
     const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
     const [agentType, setAgentType] = useState<'native' | 'openclaw'>('native');
+    const [createdApiKey, setCreatedApiKey] = useState('');
     // Clear field error when user edits a field
     const clearFieldError = (field: string) => setFieldErrors(prev => { const n = { ...prev }; delete n[field]; return n; });
-    const [createdApiKey, setCreatedApiKey] = useState('');
+
+    useEffect(() => {
+        if (!SHOW_AGENT_TYPE_PICKER) {
+            setAgentType('native');
+        }
+    }, []);
     // Current company (tenant) selection from layout sidebar
     const [currentTenant] = useState<string | null>(() => localStorage.getItem('current_tenant_id'));
     const currentUser = useAuthStore((s) => s.user);
@@ -241,7 +250,8 @@ export default function AgentCreate() {
             errors.max_tokens_per_month = t('wizard.errors.tokenLimitInvalid', '请输入有效的正整数');
         }
         const enabledModels = (models as any[]).filter((m: any) => m.enabled);
-        if (agentType === 'native' && enabledModels.length > 0 && !form.primary_model_id) {
+        const needsModel = (!SHOW_AGENT_TYPE_PICKER || agentType === 'native') && enabledModels.length > 0 && !form.primary_model_id;
+        if (needsModel) {
             errors.primary_model_id = t('wizard.errors.modelRequired', '请选择一个主模型');
         }
         setFieldErrors(errors);
@@ -265,23 +275,24 @@ export default function AgentCreate() {
 
     const handleFinish = () => {
         setError('');
-        if (step === 0 || agentType === 'openclaw') {
+        const effectiveType: 'native' | 'openclaw' = SHOW_AGENT_TYPE_PICKER ? agentType : 'native';
+        if (step === 0 || effectiveType === 'openclaw') {
             if (!validateStep0()) return;
         }
         if (!validatePermissionsStep()) return;
         createMutation.mutate({
             name: form.name,
-            agent_type: agentType,
+            agent_type: effectiveType,
             role_description: form.role_description,
-            personality: agentType === 'native' ? form.personality : undefined,
-            boundaries: agentType === 'native' ? form.boundaries : undefined,
-            primary_model_id: agentType === 'native' ? (form.primary_model_id || undefined) : undefined,
-            fallback_model_id: agentType === 'native' ? (form.fallback_model_id || undefined) : undefined,
+            personality: effectiveType === 'native' ? form.personality : undefined,
+            boundaries: effectiveType === 'native' ? form.boundaries : undefined,
+            primary_model_id: effectiveType === 'native' ? (form.primary_model_id || undefined) : undefined,
+            fallback_model_id: effectiveType === 'native' ? (form.fallback_model_id || undefined) : undefined,
             template_id: form.template_id || undefined,
             permission_scope_type: form.permission_scope_type,
             max_tokens_per_day: form.max_tokens_per_day ? Number(form.max_tokens_per_day) : undefined,
             max_tokens_per_month: form.max_tokens_per_month ? Number(form.max_tokens_per_month) : undefined,
-            skill_ids: agentType === 'native' ? form.skill_ids : [],
+            skill_ids: effectiveType === 'native' ? form.skill_ids : [],
             permission_access_level: form.permission_access_level,
             permission_scope_ids:
                 form.permission_scope_type === 'user' ? form.permission_scope_ids.map((x) => x) : undefined,
@@ -290,7 +301,6 @@ export default function AgentCreate() {
     };
 
     const selectedModel = models.find((m: any) => m.id === form.primary_model_id);
-    const activeSteps = agentType === 'openclaw' ? OPENCLAW_STEPS : STEPS;
 
     // If OpenClaw agent just created, show success page with API key
     if (createdApiKey && createMutation.data) {
@@ -454,14 +464,14 @@ For humans, the message is delivered via their available channel (e.g. Feishu).`
     );
 
     // ── OpenClaw mode: completely separate page ──
-    if (agentType === 'openclaw') {
+    if (SHOW_AGENT_TYPE_PICKER && agentType === 'openclaw') {
         return (
             <div>
                 <div className="page-header">
                     <h1 className="page-title">{t('nav.newAgent')}</h1>
                 </div>
 
-                {typeSelector}
+                {SHOW_AGENT_TYPE_PICKER ? typeSelector : null}
 
                 {error && (
                     <div style={{ background: 'var(--error-subtle)', color: 'var(--error)', padding: '8px 12px', borderRadius: '6px', fontSize: '13px', marginBottom: '16px', maxWidth: '640px' }}>
@@ -623,7 +633,7 @@ For humans, the message is delivered via their available channel (e.g. Feishu).`
                 <h1 className="page-title">{t('nav.newAgent')}</h1>
             </div>
 
-            {typeSelector}
+            {SHOW_AGENT_TYPE_PICKER ? typeSelector : null}
 
             {/* Stepper */}
             <div className="wizard-steps">

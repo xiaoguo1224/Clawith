@@ -7,6 +7,7 @@ import ConfirmModal from '../components/ConfirmModal';
 import type { FileBrowserApi } from '../components/FileBrowser';
 import FileBrowser from '../components/FileBrowser';
 import ChannelConfig from '../components/ChannelConfig';
+import { CommonPromptStrip, CommonPromptsEditor, normalizeCommonPrompts, promptsEqual, type CommonPrompt } from '../components/CommonPrompts';
 import MarkdownRenderer from '../components/MarkdownRenderer';
 import PromptModal from '../components/PromptModal';
 import OpenClawSettings from './OpenClawSettings';
@@ -2104,6 +2105,7 @@ function AgentDetailInner() {
         max_triggers: 20,
         min_poll_interval_min: 5,
         webhook_rate_limit: 5,
+        common_prompts: [] as CommonPrompt[],
     });
     const [settingsSaving, setSettingsSaving] = useState(false);
     const [settingsSaved, setSettingsSaved] = useState(false);
@@ -2123,6 +2125,7 @@ function AgentDetailInner() {
                 max_triggers: (agent as any).max_triggers ?? 20,
                 min_poll_interval_min: (agent as any).min_poll_interval_min ?? 5,
                 webhook_rate_limit: (agent as any).webhook_rate_limit ?? 5,
+                common_prompts: normalizeCommonPrompts((agent as any).common_prompts),
             });
             settingsInitRef.current = true;
         }
@@ -4888,6 +4891,21 @@ function AgentDetailInner() {
                                             </div>
                                         ) : null}
                                         <div ref={chatInputAreaRef} className="chat-input-area" style={{ flexShrink: 0 }}>
+                                            <CommonPromptStrip
+                                                prompts={normalizeCommonPrompts((agent as any)?.common_prompts)}
+                                                disabled={!wsConnected || isWaiting || isStreaming}
+                                                onPick={(text) => {
+                                                    setChatInput(text);
+                                                    requestAnimationFrame(() => {
+                                                        const el = chatInputRef.current;
+                                                        if (el) {
+                                                            el.style.height = 'auto';
+                                                            el.style.height = `${el.scrollHeight}px`;
+                                                            el.focus();
+                                                        }
+                                                    });
+                                                }}
+                                            />
                                             <div className="chat-composer">
                                             {(chatUploadDrafts.length > 0 || attachedFiles.length > 0) && (
                                                 <div className="chat-composer-attachments">
@@ -5294,7 +5312,11 @@ function AgentDetailInner() {
                             String(settingsForm.max_tokens_per_month) !== String(agent?.max_tokens_per_month || '') ||
                             settingsForm.max_triggers !== ((agent as any)?.max_triggers ?? 20) ||
                             settingsForm.min_poll_interval_min !== ((agent as any)?.min_poll_interval_min ?? 5) ||
-                            settingsForm.webhook_rate_limit !== ((agent as any)?.webhook_rate_limit ?? 5)
+                            settingsForm.webhook_rate_limit !== ((agent as any)?.webhook_rate_limit ?? 5) ||
+                            !promptsEqual(
+                                normalizeCommonPrompts(settingsForm.common_prompts),
+                                normalizeCommonPrompts((agent as any)?.common_prompts),
+                            )
                         );
 
                         const handleSaveSettings = async () => {
@@ -5311,6 +5333,7 @@ function AgentDetailInner() {
                                     max_triggers: settingsForm.max_triggers,
                                     min_poll_interval_min: settingsForm.min_poll_interval_min,
                                     webhook_rate_limit: settingsForm.webhook_rate_limit,
+                                    common_prompts: normalizeCommonPrompts(settingsForm.common_prompts),
                                 } as any);
                                 queryClient.invalidateQueries({ queryKey: ['agent', id] });
                                 settingsInitRef.current = false;
@@ -5597,6 +5620,15 @@ function AgentDetailInner() {
                                         </div>
                                     );
                                 })()}
+
+                                {/* Common prompts — quick insert in chat */}
+                                <div className="card" style={{ marginBottom: '12px' }}>
+                                    <h4 style={{ marginBottom: '4px' }}>{t('agent.settings.commonPromptsTitle')}</h4>
+                                    <CommonPromptsEditor
+                                        value={settingsForm.common_prompts}
+                                        onChange={(next) => setSettingsForm((f) => ({ ...f, common_prompts: next }))}
+                                    />
+                                </div>
 
                                 {/* Autonomy Policy — native agents only */}
                                 {(agent as any)?.agent_type !== 'openclaw' && <div className="card" style={{ marginBottom: '12px' }}>

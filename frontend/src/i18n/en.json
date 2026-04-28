@@ -418,7 +418,8 @@
       "collapseSessions": "Collapse sessions",
       "showSessions": "Show chat sessions",
       "toolCallChain": "Tools Used",
-      "analysing": "Analysing"
+      "analysing": "Analysing",
+      "commonPromptsHint": "Quick prompts — click a card to fill the input"
     },
     "activityLog": {
       "title": "Activity Log",
@@ -448,6 +449,18 @@
       "save": "Save",
       "saving": "Saving...",
       "saved": "Saved",
+      "commonPromptsTitle": "Common prompts",
+      "commonPromptsDesc": "Labels appear as small cards above the chat box. Click a card to fill the message (edit before sending if needed).",
+      "commonPromptsLabelPh": "Card label",
+      "commonPromptsTextPh": "Full text to insert",
+      "commonPromptsAdd": "Add prompt",
+      "commonPromptsRemove": "Remove",
+      "commonPromptsLimit": "Up to {{max}} prompts.",
+      "commonPromptsModalAddTitle": "Add common prompt",
+      "commonPromptsModalEditTitle": "Edit common prompt",
+      "commonPromptsModalConfirm": "Save",
+      "commonPromptsModalDelete": "Delete",
+      "commonPromptsTextRequired": "Please enter the full prompt text.",
       "autonomy": {
         "title": "Autonomy Policy",
         "description": "Configure the autonomy level for each agent action",
