@@ -1,0 +1,11 @@
+  {
+    "mcpServers": {
+      "smartcs-rag": {
+        "type": "http",
+        "url": "https://tk-service.taoke.com/mcp",
+        "headers": {
+          "Authorization": "Bearer 99f5267ca5c888010dafbe0ab013b4b83aad6a478e94b2ae3ed45c3dbb828f67"
+        }
+      }
+    }
+  }

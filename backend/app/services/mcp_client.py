@@ -282,11 +282,13 @@ class MCPClient:
             return await self._streamable_request(method, params)
 
         # Auto-detect: try Streamable HTTP first
+        streamable_error_message = "not attempted"
         try:
             result = await self._streamable_request(method, params)
             self._transport = "streamable"
             return result
         except Exception as streamable_err:
+            streamable_error_message = str(streamable_err)
             logger.info(f"[MCPClient] Streamable HTTP failed ({streamable_err}), trying SSE transport...")
 
         # Fallback to SSE
@@ -297,7 +299,7 @@ class MCPClient:
         except Exception as sse_err:
             raise Exception(
                 f"Both transports failed. "
-                f"Streamable HTTP: {streamable_err}; "
+                f"Streamable HTTP: {streamable_error_message}; "
                 f"SSE: {sse_err}"
             )
 
